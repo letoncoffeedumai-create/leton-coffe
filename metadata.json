@@ -1,0 +1,6 @@
+{
+  "name": "Leton Coffee",
+  "description": "Website resmi dan online ordering system Leton Coffee dengan fitur menu, outlet selection, custom order, QRIS payment, live tracking, dan admin CMS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

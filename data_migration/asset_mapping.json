@@ -1,0 +1,502 @@
+[
+  {
+    "index": 1,
+    "sourcePath": "siteSettings.logoUrl",
+    "type": "Logo Brand",
+    "mime": "image/jpeg",
+    "sizeKb": 39,
+    "storagePath": "logo/logo_leton_official.jpg",
+    "dbTarget": "website_content.hero.logo_url / site_settings",
+    "status": "READY"
+  },
+  {
+    "index": 2,
+    "sourcePath": "siteSettings.heroBgImage",
+    "type": "Hero Background",
+    "mime": "image/jpeg",
+    "sizeKb": 93,
+    "storagePath": "other/hero_coffee_atmosphere_bg.jpg",
+    "dbTarget": "website_content.hero.bg_image_url",
+    "status": "READY"
+  },
+  {
+    "index": 3,
+    "sourcePath": "branches[0].bgImage",
+    "type": "Cabang Background",
+    "mime": "image/jpeg",
+    "sizeKb": 95,
+    "storagePath": "cabang/sudirman_cover_chapter_5.jpg",
+    "dbTarget": "outlets.image_url WHERE id='sudirman'",
+    "status": "READY"
+  },
+  {
+    "index": 4,
+    "sourcePath": "branches[0].galleryImages[0]",
+    "type": "Galeri Cabang Sudirman",
+    "mime": "image/jpeg",
+    "sizeKb": 191,
+    "storagePath": "cabang/sudirman_gallery_1.jpg",
+    "dbTarget": "website_content.chapters.sudirman.gallery[0]",
+    "status": "READY"
+  },
+  {
+    "index": 5,
+    "sourcePath": "branches[0].galleryImages[1]",
+    "type": "Galeri Cabang Sudirman",
+    "mime": "image/jpeg",
+    "sizeKb": 137,
+    "storagePath": "cabang/sudirman_gallery_2.jpg",
+    "dbTarget": "website_content.chapters.sudirman.gallery[1]",
+    "status": "READY"
+  },
+  {
+    "index": 6,
+    "sourcePath": "branches[0].galleryImages[2]",
+    "type": "Galeri Cabang Sudirman",
+    "mime": "image/jpeg",
+    "sizeKb": 248,
+    "storagePath": "cabang/sudirman_gallery_3.jpg",
+    "dbTarget": "website_content.chapters.sudirman.gallery[2]",
+    "status": "READY"
+  },
+  {
+    "index": 7,
+    "sourcePath": "branches[0].galleryImages[3]",
+    "type": "Galeri Cabang Sudirman",
+    "mime": "image/jpeg",
+    "sizeKb": 108,
+    "storagePath": "cabang/sudirman_gallery_4.jpg",
+    "dbTarget": "website_content.chapters.sudirman.gallery[3]",
+    "status": "READY"
+  },
+  {
+    "index": 8,
+    "sourcePath": "branches[1].bgImage",
+    "type": "Cabang Background",
+    "mime": "image/jpeg",
+    "sizeKb": 390,
+    "storagePath": "cabang/ratusima_cover_chapter_6.jpg",
+    "dbTarget": "outlets.image_url WHERE id='kelakap'",
+    "status": "READY"
+  },
+  {
+    "index": 9,
+    "sourcePath": "branches[1].galleryImages[0]",
+    "type": "Galeri Cabang Ratu Sima",
+    "mime": "image/jpeg",
+    "sizeKb": 126,
+    "storagePath": "cabang/ratusima_gallery_1.jpg",
+    "dbTarget": "website_content.chapters.kelakap.gallery[0]",
+    "status": "READY"
+  },
+  {
+    "index": 10,
+    "sourcePath": "branches[1].galleryImages[1]",
+    "type": "Galeri Cabang Ratu Sima",
+    "mime": "image/jpeg",
+    "sizeKb": 190,
+    "storagePath": "cabang/ratusima_gallery_2.jpg",
+    "dbTarget": "website_content.chapters.kelakap.gallery[1]",
+    "status": "READY"
+  },
+  {
+    "index": 11,
+    "sourcePath": "branches[1].galleryImages[2]",
+    "type": "Galeri Cabang Ratu Sima",
+    "mime": "image/jpeg",
+    "sizeKb": 219,
+    "storagePath": "cabang/ratusima_gallery_3.jpg",
+    "dbTarget": "website_content.chapters.kelakap.gallery[2]",
+    "status": "READY"
+  },
+  {
+    "index": 12,
+    "sourcePath": "branches[1].galleryImages[3]",
+    "type": "Galeri Cabang Ratu Sima",
+    "mime": "image/jpeg",
+    "sizeKb": 191,
+    "storagePath": "cabang/ratusima_gallery_4.jpg",
+    "dbTarget": "website_content.chapters.kelakap.gallery[3]",
+    "status": "READY"
+  },
+  {
+    "index": 13,
+    "sourcePath": "branches[1].galleryImages[4]",
+    "type": "Galeri Cabang Ratu Sima",
+    "mime": "image/jpeg",
+    "sizeKb": 180,
+    "storagePath": "cabang/ratusima_gallery_5.jpg",
+    "dbTarget": "website_content.chapters.kelakap.gallery[4]",
+    "status": "READY"
+  },
+  {
+    "index": 14,
+    "sourcePath": "branches[1].galleryImages[5]",
+    "type": "Galeri Cabang Ratu Sima",
+    "mime": "image/jpeg",
+    "sizeKb": 230,
+    "storagePath": "cabang/ratusima_gallery_6.jpg",
+    "dbTarget": "website_content.chapters.kelakap.gallery[5]",
+    "status": "READY"
+  },
+  {
+    "index": 15,
+    "sourcePath": "mobileService.bgImage",
+    "type": "Cover Mobile Service",
+    "mime": "image/jpeg",
+    "sizeKb": 86,
+    "storagePath": "open-booth/letgo_mobile_cover_bg.jpg",
+    "dbTarget": "website_content.open_booth.bg_image_url",
+    "status": "READY"
+  },
+  {
+    "index": 16,
+    "sourcePath": "mobileService.galleryImages[0]",
+    "type": "Galeri Open Booth",
+    "mime": "image/jpeg",
+    "sizeKb": 160,
+    "storagePath": "open-booth/open_booth_gallery_1.jpg",
+    "dbTarget": "website_content.open_booth.gallery[0]",
+    "status": "READY"
+  },
+  {
+    "index": 17,
+    "sourcePath": "mobileService.galleryImages[1]",
+    "type": "Galeri Open Booth",
+    "mime": "image/jpeg",
+    "sizeKb": 89,
+    "storagePath": "open-booth/open_booth_gallery_2.jpg",
+    "dbTarget": "website_content.open_booth.gallery[1]",
+    "status": "READY"
+  },
+  {
+    "index": 18,
+    "sourcePath": "mobileService.galleryImages[2]",
+    "type": "Galeri Open Booth",
+    "mime": "image/jpeg",
+    "sizeKb": 179,
+    "storagePath": "open-booth/open_booth_gallery_3.jpg",
+    "dbTarget": "website_content.open_booth.gallery[2]",
+    "status": "READY"
+  },
+  {
+    "index": 19,
+    "sourcePath": "mobileService.galleryImages[3]",
+    "type": "Galeri Open Booth",
+    "mime": "image/jpeg",
+    "sizeKb": 96,
+    "storagePath": "open-booth/open_booth_gallery_4.jpg",
+    "dbTarget": "website_content.open_booth.gallery[3]",
+    "status": "READY"
+  },
+  {
+    "index": 20,
+    "sourcePath": "mobileService.galleryImages[4]",
+    "type": "Galeri Open Booth",
+    "mime": "image/jpeg",
+    "sizeKb": 168,
+    "storagePath": "open-booth/open_booth_gallery_5.jpg",
+    "dbTarget": "website_content.open_booth.gallery[4]",
+    "status": "READY"
+  },
+  {
+    "index": 21,
+    "sourcePath": "mobileService.letGoGalleryImages[0]",
+    "type": "Galeri LET'GO Fleet",
+    "mime": "image/jpeg",
+    "sizeKb": 85,
+    "storagePath": "open-booth/letgo_fleet_gallery_1.jpg",
+    "dbTarget": "website_content.open_booth.letgo_gallery[0]",
+    "status": "READY"
+  },
+  {
+    "index": 22,
+    "sourcePath": "mobileService.letGoGalleryImages[1]",
+    "type": "Galeri LET'GO Fleet",
+    "mime": "image/jpeg",
+    "sizeKb": 56,
+    "storagePath": "open-booth/letgo_fleet_gallery_2.jpg",
+    "dbTarget": "website_content.open_booth.letgo_gallery[1]",
+    "status": "READY"
+  },
+  {
+    "index": 23,
+    "sourcePath": "mobileService.letGoGalleryImages[2]",
+    "type": "Galeri LET'GO Fleet",
+    "mime": "image/jpeg",
+    "sizeKb": 73,
+    "storagePath": "open-booth/letgo_fleet_gallery_3.jpg",
+    "dbTarget": "website_content.open_booth.letgo_gallery[2]",
+    "status": "READY"
+  },
+  {
+    "index": 24,
+    "sourcePath": "mobileService.letGoGalleryImages[3]",
+    "type": "Galeri LET'GO Fleet",
+    "mime": "image/jpeg",
+    "sizeKb": 67,
+    "storagePath": "open-booth/letgo_fleet_gallery_4.jpg",
+    "dbTarget": "website_content.open_booth.letgo_gallery[3]",
+    "status": "READY"
+  },
+  {
+    "index": 25,
+    "sourcePath": "mobileService.letGoGalleryImages[4]",
+    "type": "Galeri LET'GO Fleet",
+    "mime": "image/jpeg",
+    "sizeKb": 155,
+    "storagePath": "open-booth/letgo_fleet_gallery_5.jpg",
+    "dbTarget": "website_content.open_booth.letgo_gallery[4]",
+    "status": "READY"
+  },
+  {
+    "index": 26,
+    "sourcePath": "mobileService.letGoGalleryImages[5]",
+    "type": "Galeri LET'GO Fleet",
+    "mime": "image/jpeg",
+    "sizeKb": 90,
+    "storagePath": "open-booth/letgo_fleet_gallery_6.jpg",
+    "dbTarget": "website_content.open_booth.letgo_gallery[5]",
+    "status": "READY"
+  },
+  {
+    "index": 27,
+    "sourcePath": "menuItems[0].image",
+    "type": "Produk Menu",
+    "mime": "image/jpeg",
+    "sizeKb": 121,
+    "storagePath": "menu/menu_menu-1_black-series.jpg",
+    "dbTarget": "products.image_url WHERE id='menu-1'",
+    "status": "READY"
+  },
+  {
+    "index": 28,
+    "sourcePath": "menuItems[1].image",
+    "type": "Produk Menu",
+    "mime": "image/jpeg",
+    "sizeKb": 60,
+    "storagePath": "menu/menu_menu-2_ice-milk-coffee-botolan.jpg",
+    "dbTarget": "products.image_url WHERE id='menu-2'",
+    "status": "READY"
+  },
+  {
+    "index": 29,
+    "sourcePath": "menuItems[2].image",
+    "type": "Produk Menu",
+    "mime": "image/jpeg",
+    "sizeKb": 84,
+    "storagePath": "menu/menu_menu-3_fruity-series.jpg",
+    "dbTarget": "products.image_url WHERE id='menu-3'",
+    "status": "READY"
+  },
+  {
+    "index": 30,
+    "sourcePath": "menuItems[3].image",
+    "type": "Produk Menu",
+    "mime": "image/jpeg",
+    "sizeKb": 66,
+    "storagePath": "menu/menu_menu-4_ice-milk-coffee.jpg",
+    "dbTarget": "products.image_url WHERE id='menu-4'",
+    "status": "READY"
+  },
+  {
+    "index": 31,
+    "sourcePath": "menuItems[4].image",
+    "type": "Produk Menu",
+    "mime": "image/jpeg",
+    "sizeKb": 85,
+    "storagePath": "menu/menu_menu-5_thai-tea.jpg",
+    "dbTarget": "products.image_url WHERE id='menu-5'",
+    "status": "READY"
+  },
+  {
+    "index": 32,
+    "sourcePath": "menuItems[5].image",
+    "type": "Produk Menu",
+    "mime": "image/jpeg",
+    "sizeKb": 75,
+    "storagePath": "menu/menu_menu-6_lycie-tea.jpg",
+    "dbTarget": "products.image_url WHERE id='menu-6'",
+    "status": "READY"
+  },
+  {
+    "index": 33,
+    "sourcePath": "menuItems[6].image",
+    "type": "Produk Menu",
+    "mime": "image/jpeg",
+    "sizeKb": 137,
+    "storagePath": "menu/menu_menu-7_main-course.jpg",
+    "dbTarget": "products.image_url WHERE id='menu-7'",
+    "status": "READY"
+  },
+  {
+    "index": 34,
+    "sourcePath": "menuItems[7].image",
+    "type": "Produk Menu",
+    "mime": "image/jpeg",
+    "sizeKb": 56,
+    "storagePath": "menu/menu_menu-8_donut-glaze.jpg",
+    "dbTarget": "products.image_url WHERE id='menu-8'",
+    "status": "READY"
+  },
+  {
+    "index": 35,
+    "sourcePath": "baristas[0].image",
+    "type": "Foto Barista / Crew",
+    "mime": "image/jpeg",
+    "sizeKb": 237,
+    "storagePath": "barista/barista_barista-1_team-sudirman.jpg",
+    "dbTarget": "baristas.image_url WHERE id='barista-1'",
+    "status": "READY"
+  },
+  {
+    "index": 36,
+    "sourcePath": "baristas[1].image",
+    "type": "Foto Barista / Crew",
+    "mime": "image/jpeg",
+    "sizeKb": 237,
+    "storagePath": "barista/barista_barista-2_azee-mr-bella.jpg",
+    "dbTarget": "baristas.image_url WHERE id='barista-2'",
+    "status": "READY"
+  },
+  {
+    "index": 37,
+    "sourcePath": "baristas[2].image",
+    "type": "Foto Barista / Crew",
+    "mime": "image/jpeg",
+    "sizeKb": 63,
+    "storagePath": "barista/barista_barista-3_aulia-indri.jpg",
+    "dbTarget": "baristas.image_url WHERE id='barista-3'",
+    "status": "READY"
+  },
+  {
+    "index": 38,
+    "sourcePath": "baristas[3].image",
+    "type": "Foto Barista / Crew",
+    "mime": "image/jpeg",
+    "sizeKb": 72,
+    "storagePath": "barista/barista_barista-4_letgo-team.jpg",
+    "dbTarget": "baristas.image_url WHERE id='barista-4'",
+    "status": "READY"
+  },
+  {
+    "index": 39,
+    "sourcePath": "baristas[4].image",
+    "type": "Foto Barista / Crew",
+    "mime": "image/jpeg",
+    "sizeKb": 102,
+    "storagePath": "barista/barista_barista-1788235914522_jenita.jpg",
+    "dbTarget": "baristas.image_url WHERE id='barista-1788235914522'",
+    "status": "READY"
+  },
+  {
+    "index": 40,
+    "sourcePath": "baristas[5].image",
+    "type": "Foto Barista / Crew",
+    "mime": "image/jpeg",
+    "sizeKb": 37,
+    "storagePath": "barista/barista_barista-1788236096868_pojan.jpg",
+    "dbTarget": "baristas.image_url WHERE id='barista-1788236096868'",
+    "status": "READY"
+  },
+  {
+    "index": 41,
+    "sourcePath": "baristas[6].image",
+    "type": "Foto Barista / Crew",
+    "mime": "image/jpeg",
+    "sizeKb": 84,
+    "storagePath": "barista/barista_barista-1788239708233_alex.jpg",
+    "dbTarget": "baristas.image_url WHERE id='barista-1788239708233'",
+    "status": "READY"
+  },
+  {
+    "index": 42,
+    "sourcePath": "baristas[7].image",
+    "type": "Foto Barista / Crew",
+    "mime": "image/jpeg",
+    "sizeKb": 137,
+    "storagePath": "barista/barista_barista-1788239754510_team-sudirman-lead.jpg",
+    "dbTarget": "baristas.image_url WHERE id='barista-1788239754510'",
+    "status": "READY"
+  },
+  {
+    "index": 43,
+    "sourcePath": "aboutContent.mainImage",
+    "type": "Story Utama",
+    "mime": "image/jpeg",
+    "sizeKb": 78,
+    "storagePath": "cerita/about_story_main.jpg",
+    "dbTarget": "website_content.about.main_image_url",
+    "status": "READY"
+  },
+  {
+    "index": 44,
+    "sourcePath": "aboutContent.sliderImages[0]",
+    "type": "Galeri Cerita / Sejarah",
+    "mime": "image/jpeg",
+    "sizeKb": 78,
+    "storagePath": "cerita/about_story_slider_1.jpg",
+    "dbTarget": "website_content.about.slider_images[0]",
+    "status": "READY"
+  },
+  {
+    "index": 45,
+    "sourcePath": "aboutContent.sliderImages[1]",
+    "type": "Galeri Cerita / Sejarah",
+    "mime": "image/jpeg",
+    "sizeKb": 49,
+    "storagePath": "cerita/about_story_slider_2.jpg",
+    "dbTarget": "website_content.about.slider_images[1]",
+    "status": "READY"
+  },
+  {
+    "index": 46,
+    "sourcePath": "aboutContent.sliderImages[2]",
+    "type": "Galeri Cerita / Sejarah",
+    "mime": "image/jpeg",
+    "sizeKb": 63,
+    "storagePath": "cerita/about_story_slider_3.jpg",
+    "dbTarget": "website_content.about.slider_images[2]",
+    "status": "READY"
+  },
+  {
+    "index": 47,
+    "sourcePath": "aboutContent.sliderImages[3]",
+    "type": "Galeri Cerita / Sejarah",
+    "mime": "image/jpeg",
+    "sizeKb": 77,
+    "storagePath": "cerita/about_story_slider_4.jpg",
+    "dbTarget": "website_content.about.slider_images[3]",
+    "status": "READY"
+  },
+  {
+    "index": 48,
+    "sourcePath": "aboutContent.sliderImages[4]",
+    "type": "Galeri Cerita / Sejarah",
+    "mime": "image/jpeg",
+    "sizeKb": 77,
+    "storagePath": "cerita/about_story_slider_5.jpg",
+    "dbTarget": "website_content.about.slider_images[4]",
+    "status": "READY"
+  },
+  {
+    "index": 49,
+    "sourcePath": "aboutContent.sliderImages[5]",
+    "type": "Galeri Cerita / Sejarah",
+    "mime": "image/jpeg",
+    "sizeKb": 83,
+    "storagePath": "cerita/about_story_slider_6.jpg",
+    "dbTarget": "website_content.about.slider_images[5]",
+    "status": "READY"
+  },
+  {
+    "index": 50,
+    "sourcePath": "aboutContent.sliderImages[6]",
+    "type": "Galeri Cerita / Sejarah",
+    "mime": "image/jpeg",
+    "sizeKb": 68,
+    "storagePath": "cerita/about_story_slider_7.jpg",
+    "dbTarget": "website_content.about.slider_images[6]",
+    "status": "READY"
+  }
+]

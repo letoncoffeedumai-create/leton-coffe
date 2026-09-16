@@ -1,0 +1,219 @@
+import { Order, OrderStatus, PaymentStatus } from '../types';
+import { SAMPLE_ORDERS } from '../data/initialData';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+
+const ORDERS_STORAGE_KEY = 'leton_orders_data';
+
+// Event emitter helper for instant intra-window and multi-tab realtime sync
+type OrderListener = (orders: Order[]) => void;
+const listeners = new Set<OrderListener>();
+
+function notifyListeners(orders: Order[]) {
+  listeners.forEach((listener) => {
+    try {
+      listener(orders);
+    } catch (err) {
+      console.error('Error notifying order listener:', err);
+    }
+  });
+}
+
+// Multi-tab storage sync
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === ORDERS_STORAGE_KEY && event.newValue) {
+      try {
+        const parsed = JSON.parse(event.newValue);
+        notifyListeners(parsed);
+      } catch {
+        // ignore
+      }
+    }
+  });
+}
+
+export const orderService = {
+  async getOrders(outletId?: string): Promise<Order[]> {
+    if (isSupabaseConfigured && supabase) {
+      let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
+      if (outletId) {
+        query = query.eq('outlet_id', outletId);
+      }
+      const { data, error } = await query;
+      if (!error && data) {
+        return data as Order[];
+      }
+    }
+
+    const stored = localStorage.getItem(ORDERS_STORAGE_KEY);
+    let orders: Order[] = SAMPLE_ORDERS;
+    if (stored) {
+      try {
+        orders = JSON.parse(stored);
+      } catch {
+        // fallback
+      }
+    } else {
+      localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(SAMPLE_ORDERS));
+    }
+
+    if (outletId) {
+      return orders.filter((o) => o.outlet_id === outletId);
+    }
+    return orders;
+  },
+
+  async getOrderById(orderId: string): Promise<Order | null> {
+    const orders = await this.getOrders();
+    return orders.find((o) => o.id === orderId || o.order_number === orderId) || null;
+  },
+
+  async createOrder(order: Order): Promise<Order> {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error } = await supabase.from('orders').insert({
+          id: order.id,
+          order_number: order.order_number,
+          outlet_id: order.outlet_id,
+          outlet_name: order.outlet_name,
+          customer_name: order.customer_name,
+          customer_phone: order.customer_phone,
+          order_type: order.order_type,
+          table_number: order.table_number,
+          subtotal: order.subtotal,
+          pb1_tax: order.pb1_tax,
+          discount: order.discount,
+          total: order.total,
+          payment_method: order.payment_method,
+          payment_status: order.payment_status,
+          order_status: order.order_status,
+          customer_note: order.customer_note,
+          payment_proof_url: order.payment_proof_url,
+          created_at: order.created_at,
+          updated_at: order.updated_at
+        });
+
+        if (!error && order.items && order.items.length > 0) {
+          const itemsPayload = order.items.map((item) => ({
+            id: item.id,
+            order_id: order.id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            product_image: item.product_image,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+            options_summary: item.options_summary,
+            options_detail: item.options_detail
+          }));
+          await supabase.from('order_items').insert(itemsPayload);
+        }
+      } catch (err) {
+        console.warn('Supabase order creation exception:', err);
+      }
+    }
+
+    const current = await this.getOrders();
+    const updated = [order, ...current];
+    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updated));
+    notifyListeners(updated);
+    return order;
+  },
+
+  async updateOrderStatus(
+    orderId: string,
+    orderStatus: OrderStatus,
+    rejectionReason?: string
+  ): Promise<Order | null> {
+    const now = new Date().toISOString();
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase
+        .from('orders')
+        .update({
+          order_status: orderStatus,
+          rejection_reason: rejectionReason,
+          updated_at: now
+        })
+        .eq('id', orderId);
+    }
+
+    const current = await this.getOrders();
+    const target = current.find((o) => o.id === orderId);
+    if (!target) return null;
+
+    const updatedOrder: Order = {
+      ...target,
+      order_status: orderStatus,
+      rejection_reason: rejectionReason !== undefined ? rejectionReason : target.rejection_reason,
+      updated_at: now
+    };
+
+    const updatedList = current.map((o) => (o.id === orderId ? updatedOrder : o));
+    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedList));
+    notifyListeners(updatedList);
+    return updatedOrder;
+  },
+
+  async updatePaymentStatus(
+    orderId: string,
+    paymentStatus: PaymentStatus,
+    rejectionReason?: string
+  ): Promise<Order | null> {
+    const now = new Date().toISOString();
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase
+        .from('orders')
+        .update({
+          payment_status: paymentStatus,
+          rejection_reason: rejectionReason,
+          updated_at: now
+        })
+        .eq('id', orderId);
+    }
+
+    const current = await this.getOrders();
+    const target = current.find((o) => o.id === orderId);
+    if (!target) return null;
+
+    const updatedOrder: Order = {
+      ...target,
+      payment_status: paymentStatus,
+      rejection_reason: rejectionReason !== undefined ? rejectionReason : target.rejection_reason,
+      updated_at: now
+    };
+
+    const updatedList = current.map((o) => (o.id === orderId ? updatedOrder : o));
+    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedList));
+    notifyListeners(updatedList);
+    return updatedOrder;
+  },
+
+  subscribe(listener: OrderListener): () => void {
+    listeners.add(listener);
+
+    // If Supabase realtime is configured, also subscribe to postgres changes
+    let supabaseChannel: { unsubscribe: () => void } | null = null;
+    if (isSupabaseConfigured && supabase) {
+      supabaseChannel = supabase
+        .channel('public:orders')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'orders' },
+          async () => {
+            const fresh = await orderService.getOrders();
+            notifyListeners(fresh);
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      listeners.delete(listener);
+      if (supabaseChannel) {
+        supabaseChannel.unsubscribe();
+      }
+    };
+  }
+};
