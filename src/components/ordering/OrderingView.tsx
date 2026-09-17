@@ -54,14 +54,24 @@ export const OrderingView: React.FC<OrderingViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [secondaryFilter, setSecondaryFilter] = useState<string>('all');
 
+  const activeCategories = useMemo(() => {
+    return (categories || []).filter((c) => c.is_active !== false);
+  }, [categories]);
+
   // Filter products based on search, category, and secondary badges
   const filteredProducts = useMemo(() => {
     return (products || []).filter((product) => {
       if (!product || !product.is_active) return false;
 
       // Category match
-      if (selectedCategory !== 'all' && product.category_id !== selectedCategory) {
-        return false;
+      if (selectedCategory !== 'all') {
+        const catObj = categories.find((c) => c.slug === selectedCategory || c.id === selectedCategory);
+        const matchesCategory =
+          product.category_id === selectedCategory ||
+          (catObj && (product.category_id === catObj.id || product.category_id === catObj.slug));
+        if (!matchesCategory) {
+          return false;
+        }
       }
 
       // Search match
@@ -220,7 +230,7 @@ export const OrderingView: React.FC<OrderingViewProps> = ({
         <div className="max-w-7xl mx-auto space-y-space-sm">
           {/* Horizontal Scrollable Tabs */}
           <div className="flex items-center gap-space-xs overflow-x-auto pb-1 no-scrollbar">
-            {categories.map((cat) => {
+            {activeCategories.map((cat) => {
               const active = selectedCategory === cat.slug;
               return (
                 <button

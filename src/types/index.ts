@@ -29,6 +29,7 @@ export interface Category {
   name: string;
   slug: string;
   display_order: number;
+  is_active?: boolean;
 }
 
 export interface ProductOptionItem {

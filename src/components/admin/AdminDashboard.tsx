@@ -190,6 +190,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {(activeTab === 'categories' || activeTab === 'options') && (
                 <CategoriesAndOptionsView
                   categories={categories}
+                  products={products}
+                  profile={currentProfile}
                   onRefreshCategories={onRefreshProducts}
                 />
               )}
