@@ -1,22 +1,57 @@
 import { Category, Product } from '../types';
 import { INITIAL_CATEGORIES, INITIAL_PRODUCTS } from '../data/initialData';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { generateCategorySlug } from '../lib/slug';
 
 const PRODUCTS_STORAGE_KEY = 'leton_products_data';
 const CATEGORIES_STORAGE_KEY = 'leton_categories_data';
 
 export const productService = {
   async getCategories(): Promise<Category[]> {
+    // 1. Primary: fetch from server-side Supabase API
+    try {
+      const res = await fetch('/api/categories');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(data));
+          return data as Category[];
+        }
+      }
+    } catch {
+      // fallback to direct client if server API not reachable
+    }
+
+    // 2. Direct Supabase client query
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('display_order');
-      if (!error && data && data.length > 0) {
-        return data as Category[];
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .select('*')
+          .order('display_order', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+          const { data: meta } = await supabase
+            .from('website_content')
+            .select('data')
+            .eq('section_key', 'category_metadata')
+            .maybeSingle();
+
+          const inactiveIds = (meta?.data?.inactive_ids as string[]) || [];
+          const categoriesWithStatus = data.map((cat) => ({
+            ...cat,
+            is_active: !inactiveIds.includes(cat.id)
+          }));
+
+          localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categoriesWithStatus));
+          return categoriesWithStatus as Category[];
+        }
+      } catch (err) {
+        console.warn('Direct Supabase fetch failed:', err);
       }
     }
 
+    // 3. LocalStorage fallback
     const stored = localStorage.getItem(CATEGORIES_STORAGE_KEY);
     if (stored) {
       try {
@@ -32,94 +67,192 @@ export const productService = {
     return INITIAL_CATEGORIES;
   },
 
-  async saveCategory(category: Category): Promise<Category> {
-    const safeCategory: Category = {
-      ...category,
-      is_active: category.is_active ?? true
-    };
+  async createCategory(categoryData: {
+    name: string;
+    display_order?: number;
+    is_active?: boolean;
+    id?: string;
+  }): Promise<Category> {
+    const trimmedName = categoryData.name.trim();
+    if (!trimmedName) {
+      throw new Error('Nama kategori tidak boleh kosong.');
+    }
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const payload: any = {
-          id: safeCategory.id,
-          name: safeCategory.name,
-          slug: safeCategory.slug,
-          display_order: safeCategory.display_order
-        };
-        if (safeCategory.is_active !== undefined) {
-          payload.is_active = safeCategory.is_active;
-        }
-        const { error } = await supabase.from('categories').upsert(payload);
-        if (error && error.message?.includes('is_active')) {
-          delete payload.is_active;
-          await supabase.from('categories').upsert(payload);
-        }
-      } catch (err) {
-        console.warn('Could not save category to Supabase, saving locally:', err);
+    let serverErrorMsg = '';
+
+    // Primary: Call server-side API (bypasses RLS with Service Role)
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: trimmedName,
+          display_order: categoryData.display_order,
+          is_active: categoryData.is_active !== false,
+          id: categoryData.id
+        })
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        serverErrorMsg = result.error || 'Gagal menyimpan kategori baru ke Supabase.';
+      } else {
+        await this.getCategories(); // refresh cache
+        return result as Category;
       }
+    } catch (err: any) {
+      serverErrorMsg = err?.message || 'Gagal menghubungi server.';
     }
 
-    const current = await this.getCategories();
-    const existingIndex = current.findIndex((c) => c.id === safeCategory.id);
-    let updated: Category[];
-    if (existingIndex >= 0) {
-      updated = current.map((c) => (c.id === safeCategory.id ? safeCategory : c));
-    } else {
-      updated = [...current, safeCategory];
+    // If server returned error, throw clearly
+    if (serverErrorMsg && isSupabaseConfigured) {
+      throw new Error(serverErrorMsg);
     }
-    // Maintain display_order sorting
-    updated.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-    localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updated));
-    return safeCategory;
-  },
 
-  async createCategory(categoryData: Omit<Category, 'id'> & { id?: string }): Promise<Category> {
+    // Fallback: local storage
     const current = await this.getCategories();
     const maxOrder = current.reduce((max, c) => Math.max(max, c.display_order || 0), 0);
+    const slug = generateCategorySlug(trimmedName);
     const newCategory: Category = {
       id: categoryData.id || `cat-${Date.now()}`,
-      name: categoryData.name.trim(),
-      slug: (categoryData.slug || categoryData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')).trim(),
+      name: trimmedName,
+      slug,
       display_order: categoryData.display_order ?? (maxOrder + 1),
-      is_active: categoryData.is_active ?? true
+      is_active: categoryData.is_active !== false
     };
-    return this.saveCategory(newCategory);
+
+    const updated = [...current, newCategory].sort(
+      (a, b) => (a.display_order || 0) - (b.display_order || 0)
+    );
+    localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updated));
+    return newCategory;
   },
 
-  async updateCategory(id: string, updates: Partial<Category>): Promise<Category | null> {
+  async updateCategory(id: string, updates: Partial<Category>): Promise<Category> {
+    if (!id) {
+      throw new Error('ID kategori tidak valid untuk pembaruan.');
+    }
+
+    let serverErrorMsg = '';
+
+    // Primary: Call server-side API (bypasses RLS with Service Role and updates products)
+    try {
+      const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        serverErrorMsg = result.error || 'Gagal memperbarui kategori di Supabase.';
+      } else {
+        await this.getCategories(); // refresh cache
+        return result as Category;
+      }
+    } catch (err: any) {
+      serverErrorMsg = err?.message || 'Gagal menghubungi server.';
+    }
+
+    // If server returned an error, throw it so UI displays the exact Supabase error
+    if (serverErrorMsg && isSupabaseConfigured) {
+      throw new Error(serverErrorMsg);
+    }
+
+    // Fallback: local state
     const current = await this.getCategories();
     const target = current.find((c) => c.id === id);
-    if (!target) return null;
+    if (!target) {
+      throw new Error(`Kategori dengan ID "${id}" tidak ditemukan.`);
+    }
+
     const merged: Category = {
       ...target,
       ...updates,
-      id: target.id // protect ID
+      id: target.id,
+      slug: updates.name ? generateCategorySlug(updates.name) : target.slug
     };
-    return this.saveCategory(merged);
+
+    const updated = current
+      .map((c) => (c.id === id ? merged : c))
+      .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+    localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updated));
+    return merged;
   },
 
   async deleteCategory(categoryId: string): Promise<void> {
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase.from('categories').delete().eq('id', categoryId);
-      } catch (err) {
-        console.warn('Could not delete category from Supabase:', err);
-      }
+    if (!categoryId) {
+      throw new Error('ID kategori tidak valid untuk penghapusan.');
     }
+
+    let serverErrorMsg = '';
+
+    // Primary: Call server-side API
+    try {
+      const res = await fetch(`/api/categories/${encodeURIComponent(categoryId)}`, {
+        method: 'DELETE'
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        serverErrorMsg = result.error || 'Gagal menghapus kategori dari Supabase.';
+      } else {
+        await this.getCategories(); // refresh cache
+        return;
+      }
+    } catch (err: any) {
+      serverErrorMsg = err?.message || 'Gagal menghubungi server.';
+    }
+
+    // If server returned error, throw clearly
+    if (serverErrorMsg && isSupabaseConfigured) {
+      throw new Error(serverErrorMsg);
+    }
+
+    // Fallback: local state
     const current = await this.getCategories();
     const updated = current.filter((c) => c.id !== categoryId);
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updated));
   },
 
-  async toggleCategoryActive(categoryId: string): Promise<Category | null> {
+  async toggleCategoryActive(categoryId: string): Promise<Category> {
     const current = await this.getCategories();
     const target = current.find((c) => c.id === categoryId);
-    if (!target) return null;
-    const currentActive = target.is_active ?? true;
+    if (!target) {
+      throw new Error(`Kategori dengan ID "${categoryId}" tidak ditemukan.`);
+    }
+    const currentActive = target.is_active !== false;
     return this.updateCategory(categoryId, { is_active: !currentActive });
   },
 
   async reorderCategories(orderedIds: string[]): Promise<Category[]> {
+    if (!Array.isArray(orderedIds)) {
+      throw new Error('Daftar ID kategori tidak valid.');
+    }
+
+    let serverErrorMsg = '';
+
+    // Primary: Call server-side API
+    try {
+      const res = await fetch('/api/categories/reorder', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds })
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        serverErrorMsg = result.error || 'Gagal memperbarui urutan kategori di Supabase.';
+      } else {
+        localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(result));
+        return result as Category[];
+      }
+    } catch (err: any) {
+      serverErrorMsg = err?.message || 'Gagal menghubungi server.';
+    }
+
+    if (serverErrorMsg && isSupabaseConfigured) {
+      throw new Error(serverErrorMsg);
+    }
+
+    // Fallback: local state
     const current = await this.getCategories();
     const reordered: Category[] = [];
 
@@ -127,32 +260,15 @@ export const productService = {
       const catId = orderedIds[index];
       const found = current.find((c) => c.id === catId);
       if (found) {
-        const updatedCat: Category = {
-          ...found,
-          display_order: index + 1
-        };
-        reordered.push(updatedCat);
+        reordered.push({ ...found, display_order: index + 1 });
       }
     }
 
-    // Include any categories not in orderedIds at the end
     current.forEach((c) => {
       if (!orderedIds.includes(c.id)) {
         reordered.push(c);
       }
     });
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await Promise.all(
-          reordered.map((cat, idx) =>
-            supabase!.from('categories').update({ display_order: idx + 1 }).eq('id', cat.id)
-          )
-        );
-      } catch (err) {
-        console.warn('Could not update category order in Supabase:', err);
-      }
-    }
 
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(reordered));
     return reordered;

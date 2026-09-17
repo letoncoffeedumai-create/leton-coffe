@@ -34,7 +34,6 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
 
   // Form fields
   const [formName, setFormName] = useState('');
-  const [formSlug, setFormSlug] = useState('');
   const [formOrder, setFormOrder] = useState<number>(1);
   const [formActive, setFormActive] = useState<boolean>(true);
 
@@ -87,7 +86,6 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
       ? Math.max(...categories.map((c) => c.display_order || 0)) + 1
       : 1;
     setFormName('');
-    setFormSlug('');
     setFormOrder(nextOrder);
     setFormActive(true);
     setIsAddModalOpen(true);
@@ -98,21 +96,8 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
     if (!isSuperAdmin) return;
     setEditingCategory(cat);
     setFormName(cat.name);
-    setFormSlug(cat.slug);
     setFormOrder(cat.display_order || 1);
     setFormActive(cat.is_active !== false);
-  };
-
-  // Auto slug helper
-  const handleNameChange = (val: string, isEditing: boolean) => {
-    setFormName(val);
-    if (!isEditing || !formSlug) {
-      const slugified = val
-        .toLowerCase()
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '');
-      setFormSlug(slugified);
-    }
   };
 
   // Save Add
@@ -124,25 +109,19 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
       return;
     }
 
-    const finalSlug = (formSlug || formName)
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '');
-
     setIsProcessing(true);
     try {
       await productService.createCategory({
         name: formName.trim(),
-        slug: finalSlug,
         display_order: Number(formOrder) || 1,
         is_active: formActive
       });
-      showFeedback('success', `Kategori "${formName.trim()}" berhasil disimpan ke Supabase!`);
+      showFeedback('success', 'Kategori berhasil ditambahkan');
       setIsAddModalOpen(false);
-      onRefreshCategories();
+      await onRefreshCategories();
     } catch (err: any) {
       console.error('Error creating category:', err);
-      showFeedback('error', 'Gagal menyimpan kategori. Coba lagi.');
+      showFeedback('error', `Gagal menambahkan kategori: ${err?.message || 'Terjadi kesalahan'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -157,25 +136,19 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
       return;
     }
 
-    const finalSlug = (formSlug || formName)
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '');
-
     setIsProcessing(true);
     try {
       await productService.updateCategory(editingCategory.id, {
         name: formName.trim(),
-        slug: finalSlug,
         display_order: Number(formOrder) || 1,
         is_active: formActive
       });
-      showFeedback('success', `Perubahan kategori "${formName.trim()}" berhasil disimpan ke Supabase!`);
+      showFeedback('success', 'Kategori berhasil diperbarui');
       setEditingCategory(null);
-      onRefreshCategories();
+      await onRefreshCategories();
     } catch (err: any) {
       console.error('Error updating category:', err);
-      showFeedback('error', 'Gagal memperbarui kategori.');
+      showFeedback('error', `Gagal memperbarui kategori: ${err?.message || 'Terjadi kesalahan'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -188,11 +161,11 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
     try {
       await productService.toggleCategoryActive(cat.id);
       const newStatus = cat.is_active === false ? 'diaktifkan' : 'dinonaktifkan';
-      showFeedback('success', `Kategori "${cat.name}" berhasil ${newStatus}!`);
-      onRefreshCategories();
-    } catch (err) {
+      showFeedback('success', `Kategori "${cat.name}" berhasil ${newStatus}`);
+      await onRefreshCategories();
+    } catch (err: any) {
       console.error('Error toggling category status:', err);
-      showFeedback('error', 'Gagal mengubah status kategori.');
+      showFeedback('error', `Gagal mengubah status kategori: ${err?.message || 'Terjadi kesalahan'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -213,11 +186,11 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
     setIsProcessing(true);
     try {
       await productService.reorderCategories(orderedIds);
-      showFeedback('success', 'Urutan kategori berhasil diperbarui.');
-      onRefreshCategories();
-    } catch (err) {
+      showFeedback('success', 'Urutan kategori berhasil diperbarui');
+      await onRefreshCategories();
+    } catch (err: any) {
       console.error('Error reordering categories:', err);
-      showFeedback('error', 'Gagal mengubah urutan kategori.');
+      showFeedback('error', `Gagal mengubah urutan kategori: ${err?.message || 'Terjadi kesalahan'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -249,12 +222,12 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
     setIsProcessing(true);
     try {
       await productService.deleteCategory(categoryToDelete.id);
-      showFeedback('success', `Kategori "${categoryToDelete.name}" berhasil dihapus.`);
+      showFeedback('success', 'Kategori berhasil dihapus');
       setCategoryToDelete(null);
-      onRefreshCategories();
-    } catch (err) {
+      await onRefreshCategories();
+    } catch (err: any) {
       console.error('Error deleting category:', err);
-      showFeedback('error', 'Gagal menghapus kategori.');
+      showFeedback('error', `Gagal menghapus kategori: ${err?.message || 'Terjadi kesalahan'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -695,26 +668,9 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
                   required
                   placeholder="Contoh: Mocktail & Tonics"
                   value={formName}
-                  onChange={(e) => handleNameChange(e.target.value, false)}
+                  onChange={(e) => setFormName(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none focus:border-primary"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">
-                  Slug URL <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="mocktail-tonics"
-                  value={formSlug}
-                  onChange={(e) => setFormSlug(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-surface-container-low border border-surface-container text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
-                />
-                <span className="text-[10px] text-on-surface-variant block mt-1">
-                  Digunakan untuk identifikasi filter menu (huruf kecil dan tanda strip).
-                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -796,25 +752,9 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
                   type="text"
                   required
                   value={formName}
-                  onChange={(e) => handleNameChange(e.target.value, true)}
+                  onChange={(e) => setFormName(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none focus:border-primary"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">
-                  Slug URL <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formSlug}
-                  onChange={(e) => setFormSlug(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-surface-container-low border border-surface-container text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
-                />
-                <span className="text-[10px] text-on-surface-variant block mt-1">
-                  Catatan: Mengubah slug akan mempengaruhi penautan produk yang menggunakan slug ini.
-                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
