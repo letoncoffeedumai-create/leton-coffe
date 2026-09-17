@@ -25,6 +25,11 @@ export const ProductCustomizationModal: React.FC<ProductCustomizationModalProps>
       : '70% Less'
   );
 
+  // Size Cup (Mandatory: Reguler Rp0, Large +Rp5.000)
+  const [size, setSize] = useState<'Reguler' | 'Large'>('Reguler');
+  const largePriceAddition = product.large_price_addition ?? 5000;
+  const sizePrice = size === 'Large' ? largePriceAddition : 0;
+
   // Selected toppings (default: No Topping)
   const availableToppings = product.toppings || TOPPING_OPTIONS;
   const [selectedToppings, setSelectedToppings] = useState<ProductOptionItem[]>([
@@ -82,16 +87,18 @@ export const ProductCustomizationModal: React.FC<ProductCustomizationModalProps>
     setSelectedSyrups(updated);
   };
 
-  // Calculate total price
+  // Calculate total price: base + size + toppings + syrups
   const toppingsTotal = selectedToppings.reduce((sum, t) => sum + (t.price || 0), 0);
   const syrupsTotal = selectedSyrups.reduce((sum, s) => sum + (s.price || 0), 0);
-  const unitPrice = product.price + toppingsTotal + syrupsTotal;
+  const unitPrice = product.price + sizePrice + toppingsTotal + syrupsTotal;
   const totalPrice = unitPrice * quantity;
 
   const handleConfirm = () => {
     onAddToCart(
       product,
       {
+        size,
+        size_price: sizePrice,
         temperature,
         sweetness,
         toppings: selectedToppings,
@@ -154,6 +161,100 @@ export const ProductCustomizationModal: React.FC<ProductCustomizationModalProps>
         </div>
 
         <div className="space-y-space-md">
+          {/* Size Cup Selection (Wajib) */}
+          <div className="p-3.5 rounded-xl bg-surface-container-low border border-surface-container">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[20px]">
+                  local_cafe
+                </span>
+                <label className="font-label-md text-label-md text-on-surface font-bold">
+                  Size Cup
+                </label>
+              </div>
+              <span className="font-label-sm text-[11px] px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary font-bold uppercase tracking-wide">
+                Wajib Dipilih
+              </span>
+            </div>
+            <p className="font-body-sm text-xs text-on-surface-variant mb-3">
+              Pilih ukuran cup (Reguler atau Large) untuk minuman ini:
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setSize('Reguler')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  size === 'Reguler'
+                    ? 'bg-primary-container text-on-primary border-primary shadow-sm ring-2 ring-primary-container/30'
+                    : 'bg-surface-container-lowest text-on-surface hover:bg-surface-container border-surface-container'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="font-label-md text-label-md font-bold">Reguler</span>
+                  <span
+                    className={`material-symbols-outlined text-[18px] ${
+                      size === 'Reguler' ? 'text-on-primary' : 'text-outline'
+                    }`}
+                  >
+                    {size === 'Reguler' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span
+                    className={`text-xs font-semibold ${
+                      size === 'Reguler' ? 'text-on-primary/90' : 'text-on-surface-variant'
+                    }`}
+                  >
+                    Ukuran Standar
+                  </span>
+                  <span
+                    className={`text-xs font-bold ${
+                      size === 'Reguler' ? 'text-on-primary' : 'text-on-surface-variant'
+                    }`}
+                  >
+                    Rp 0
+                  </span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSize('Large')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  size === 'Large'
+                    ? 'bg-primary-container text-on-primary border-primary shadow-sm ring-2 ring-primary-container/30'
+                    : 'bg-surface-container-lowest text-on-surface hover:bg-surface-container border-surface-container'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="font-label-md text-label-md font-bold">Large</span>
+                  <span
+                    className={`material-symbols-outlined text-[18px] ${
+                      size === 'Large' ? 'text-on-primary' : 'text-outline'
+                    }`}
+                  >
+                    {size === 'Large' ? 'radio_button_checked' : 'radio_button_unchecked'}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span
+                    className={`text-xs font-semibold ${
+                      size === 'Large' ? 'text-on-primary/90' : 'text-on-surface-variant'
+                    }`}
+                  >
+                    Ukuran Besar
+                  </span>
+                  <span
+                    className={`text-xs font-bold ${
+                      size === 'Large' ? 'text-on-primary font-extrabold' : 'text-primary font-bold'
+                    }`}
+                  >
+                    +Rp {largePriceAddition.toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </button>
+            </div>
+          </div>
           {/* Temperature Selection */}
           {tempOptions.length > 1 && (
             <div>

@@ -248,6 +248,20 @@ export default function App() {
     (outlets || [])[0] ||
     INITIAL_OUTLETS[0];
 
+  // Online ordering outlets strictly restricted to Sudirman and Kelakap 7 (MPP / LET'GO removed)
+  const onlineOrderOutlets: Outlet[] = (outlets || []).filter((o) => {
+    if (!o) return false;
+    const idLower = (o.id || '').toLowerCase();
+    const nameLower = (o.name || '').toLowerCase();
+    return (
+      !idLower.includes('letgo') &&
+      !idLower.includes('mpp') &&
+      !nameLower.includes("let'go") &&
+      !nameLower.includes('letgo') &&
+      !nameLower.includes('mpp')
+    );
+  });
+
   // Smooth scroll with navbar height offset
   const scrollToSection = (sectionId: string) => {
     const el = document.getElementById(sectionId);
@@ -433,6 +447,7 @@ export default function App() {
           outlets={outlets}
           onSelectOutlet={(id) => setSelectedOutletId(id)}
           onOpenOutletSelector={() => setIsOutletSelectorModalOpen(true)}
+          onOrderOnline={() => setIsOutletSelectorModalOpen(true)}
           onOpenAdmin={() => {
             if (adminSession && currentProfile) {
               window.history.pushState(null, '', '/admin');
@@ -457,8 +472,7 @@ export default function App() {
               selectedOutletId={selectedOutletId}
               onSelectOutlet={setSelectedOutletId}
               onOrderNow={() => {
-                window.history.pushState(null, '', '/menu');
-                setActivePage('ordering');
+                setIsOutletSelectorModalOpen(true);
               }}
               onExploreMenu={() => {
                 window.history.pushState(null, '', '/menu');
@@ -615,8 +629,7 @@ export default function App() {
           outlets={outlets}
           onNavigate={handleNavigate}
           onOrderClick={() => {
-            window.history.pushState(null, '', '/menu');
-            setActivePage('ordering');
+            setIsOutletSelectorModalOpen(true);
           }}
           onAdminClick={() => {
             if (adminSession && currentProfile) {
@@ -669,14 +682,22 @@ export default function App() {
         outletName={currentOutlet?.name || 'Leton Coffee — Sudirman'}
       />
 
-      {/* 7. Switch Outlet Modal (from Ordering View) */}
+      {/* 7. Outlet Selection Modal for ORDER ONLINE (Sudirman & Kelakap 7 only; MPP / LET'GO removed) */}
       {isOutletSelectorModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/50 backdrop-blur-xs">
-          <div className="w-full max-w-2xl bg-surface-container-lowest p-space-lg sm:p-space-xl rounded-xl shadow-2xl border border-surface-container space-y-space-md">
+          <div className="w-full max-w-xl bg-surface-container-lowest p-space-lg sm:p-space-xl rounded-2xl shadow-2xl border border-surface-container space-y-space-md">
             <div className="flex items-center justify-between pb-space-sm border-b border-surface-container">
-              <h3 className="font-headline-sm font-bold text-on-surface">
-                Pilih Lokasi Outlet Leton
-              </h3>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[22px]">storefront</span>
+                  <h3 className="font-headline-sm font-bold text-on-surface">
+                    Pilih Outlet Order Online
+                  </h3>
+                </div>
+                <p className="font-body-sm text-xs text-on-surface-variant mt-1">
+                  Pilih outlet Leton Coffee untuk pemesanan online:
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsOutletSelectorModalOpen(false)}
@@ -686,37 +707,57 @@ export default function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-space-sm">
-              {(outlets || []).map((outlet) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {onlineOrderOutlets.map((outlet) => {
                 const isSelected = outlet?.id === selectedOutletId;
-                const displayName = outlet?.name
-                  ? outlet.name.replace('Leton Coffee — ', '')
-                  : 'Outlet';
+                const isSudirman = outlet.id.includes('sudirman');
+                const displayName = isSudirman
+                  ? 'Leton Coffee Sudirman'
+                  : 'Leton Coffee Kelakap 7';
+
                 return (
                   <div
                     key={outlet?.id || Math.random().toString()}
                     onClick={() => {
                       if (outlet?.id) setSelectedOutletId(outlet.id);
                       setIsOutletSelectorModalOpen(false);
+                      window.history.pushState(null, '', '/menu');
+                      setActivePage('ordering');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className={`p-space-md rounded-lg cursor-pointer transition-all border ${
+                    className={`p-5 rounded-xl cursor-pointer transition-all border text-left flex flex-col justify-between group ${
                       isSelected
-                        ? 'bg-surface-container-low border-primary-container shadow-xs'
-                        : 'bg-surface-container-lowest border-surface-container hover:border-primary/40'
+                        ? 'bg-primary-container/10 border-primary shadow-md ring-2 ring-primary/20'
+                        : 'bg-surface-container-lowest border-surface-container hover:border-primary/50 hover:bg-surface-container-low/50 shadow-sm'
                     }`}
                   >
-                    <span className="font-label-sm text-[10px] text-primary font-bold uppercase block">
-                      {outlet?.chapter_label || 'CHAPTER'}
-                    </span>
-                    <h4 className="font-label-lg font-bold text-on-surface mt-0.5">
-                      {displayName}
-                    </h4>
-                    <p className="font-body-sm text-[11px] text-on-surface-variant mt-1">
-                      {outlet?.address || ''}
-                    </p>
-                    <p className="font-label-sm text-[11px] text-primary mt-2">
-                      {outlet?.opening_hours || ''}
-                    </p>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-label-sm text-[10px] px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold uppercase tracking-wider">
+                          {outlet?.chapter_label || (isSudirman ? 'CHAPTER 05' : 'CHAPTER 06')}
+                        </span>
+                        {isSelected && (
+                          <span className="material-symbols-outlined text-primary text-[18px]">
+                            check_circle
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-headline-sm text-base font-bold text-on-surface group-hover:text-primary transition-colors">
+                        {displayName}
+                      </h4>
+                      <p className="font-body-sm text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+                        {outlet?.address || ''}
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-surface-container/60 flex items-center justify-between">
+                      <span className="font-label-sm text-[11px] text-primary flex items-center gap-1 font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        {outlet?.opening_hours || '07:00 – 23:00 WIB'}
+                      </span>
+                      <span className="text-xs font-bold text-primary group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                        Pilih & Order <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                      </span>
+                    </div>
                   </div>
                 );
               })}

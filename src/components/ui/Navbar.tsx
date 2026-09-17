@@ -14,6 +14,7 @@ interface NavbarProps {
   onSelectOutlet?: (outletId: string) => void;
   onOpenOutletSelector?: () => void;
   onOpenAdmin?: () => void;
+  onOrderOnline?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -28,7 +29,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   outlets,
   onSelectOutlet,
   onOpenOutletSelector,
-  onOpenAdmin
+  onOpenAdmin,
+  onOrderOnline
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -127,7 +129,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Primary CTA: ORDER ONLINE */}
           <button
-            onClick={() => handleNavClick('menu')}
+            onClick={() => {
+              if (onOrderOnline) {
+                onOrderOnline();
+              } else if (onOpenOutletSelector) {
+                onOpenOutletSelector();
+              } else {
+                handleNavClick('menu');
+              }
+            }}
             className="flex items-center justify-center px-space-lg py-2 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg tracking-wide uppercase shadow-[0_8px_24px_-2px_rgba(14,165,233,0.35)] hover:bg-primary transition-all active:scale-95 cursor-pointer"
             type="button"
           >

@@ -53,6 +53,11 @@ export interface Product {
   category_id: string;
   category_name?: string;
   price: number;
+  large_price_addition?: number;
+  large_price?: number;
+  has_size_options?: boolean;
+  display_order?: number;
+  is_hidden?: boolean;
   description: string;
   image_url: string;
   is_active: boolean;
@@ -68,6 +73,8 @@ export interface Product {
 }
 
 export interface CartItemOption {
+  size?: 'Reguler' | 'Large';
+  size_price?: number;
   temperature?: string;
   sweetness?: string;
   toppings: ProductOptionItem[];

@@ -23,7 +23,7 @@ export const OrdersManagementView: React.FC<OrdersManagementViewProps> = ({
   // State
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
+  const [selectedProofOrder, setSelectedProofOrder] = useState<Order | null>(null);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<Order | null>(null);
   const [rejectionModalOrder, setRejectionModalOrder] = useState<Order | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -90,7 +90,7 @@ export const OrdersManagementView: React.FC<OrdersManagementViewProps> = ({
           prev ? { ...prev, payment_status: status, order_status: status === 'PAID' ? 'IN_PROGRESS' : prev.order_status } : null
         );
       }
-      setSelectedProofUrl(null);
+      setSelectedProofOrder(null);
     } finally {
       setIsUpdating(false);
     }
@@ -278,23 +278,48 @@ export const OrdersManagementView: React.FC<OrdersManagementViewProps> = ({
                   </div>
 
                   {/* Payment Verification Banner if applicable */}
-                  {isWaitingVerification && ord.payment_proof_url && (
-                    <div className="p-3 mb-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-amber-600 text-[18px]">
-                          receipt
-                        </span>
-                        <span className="text-xs font-bold text-amber-900">
-                          Bukti QRIS Menunggu Verifikasi
-                        </span>
+                  {isWaitingVerification && (
+                    <div className="p-3 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-amber-600 text-[18px]">
+                            qr_code_scanner
+                          </span>
+                          <span className="text-xs font-bold text-amber-900 dark:text-amber-300">
+                            Menunggu Verifikasi QRIS
+                          </span>
+                        </div>
+                        {ord.payment_proof_url && (
+                          <button
+                            onClick={() => setSelectedProofOrder(ord)}
+                            className="px-2.5 py-1 rounded-full bg-amber-200 text-amber-900 text-xs font-bold hover:bg-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
+                            type="button"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">receipt_long</span>
+                            Lihat Bukti
+                          </button>
+                        )}
                       </div>
-                      <button
-                        onClick={() => setSelectedProofUrl(ord.payment_proof_url || null)}
-                        className="px-2.5 py-1 rounded-full bg-amber-200 text-amber-900 text-xs font-bold hover:bg-amber-300 cursor-pointer"
-                        type="button"
-                      >
-                        Lihat Foto
-                      </button>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={() => handleVerifyPayment(ord.id, 'PAID')}
+                          disabled={isUpdating}
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                          type="button"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">check</span>
+                          ACCEPT
+                        </button>
+                        <button
+                          onClick={() => setRejectionModalOrder(ord)}
+                          disabled={isUpdating}
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                          type="button"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">close</span>
+                          REJECT
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -428,33 +453,61 @@ export const OrdersManagementView: React.FC<OrdersManagementViewProps> = ({
       )}
 
       {/* Proof Viewer Modal */}
-      {selectedProofUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="bg-surface-container-lowest max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl p-6 relative">
+      {selectedProofOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+          <div className="bg-surface-container-lowest max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl p-6 relative border border-surface-container">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-title-lg font-bold text-on-surface">Bukti Pembayaran QRIS</h4>
+              <div>
+                <h4 className="font-title-lg font-bold text-on-surface">Bukti Pembayaran QRIS</h4>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Pesanan #{selectedProofOrder.order_number} • {selectedProofOrder.customer_name} • Rp {selectedProofOrder.total.toLocaleString('id-ID')}
+                </p>
+              </div>
               <button
-                onClick={() => setSelectedProofUrl(null)}
-                className="p-1 rounded-lg text-outline hover:text-on-surface"
+                onClick={() => setSelectedProofOrder(null)}
+                className="p-1 rounded-lg text-outline hover:text-on-surface cursor-pointer"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="w-full max-h-[60vh] overflow-auto rounded-xl bg-black flex items-center justify-center">
+            <div className="w-full max-h-[55vh] overflow-auto rounded-xl bg-black/90 flex items-center justify-center p-2">
               <img
-                src={selectedProofUrl}
+                src={selectedProofOrder.payment_proof_url || ''}
                 alt="Bukti Transfer"
-                className="max-h-[60vh] object-contain"
+                className="max-h-[50vh] object-contain rounded"
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div className="mt-5 flex justify-end gap-3">
+            <div className="mt-5 flex items-center justify-between gap-3 pt-3 border-t border-surface-container">
               <button
-                onClick={() => setSelectedProofUrl(null)}
-                className="px-4 py-2 rounded-full bg-surface-container text-on-surface font-semibold text-xs cursor-pointer"
+                onClick={() => setSelectedProofOrder(null)}
+                className="px-4 py-2 rounded-full bg-surface-container text-on-surface font-semibold text-xs cursor-pointer hover:bg-surface-container-high"
               >
                 Tutup
               </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const target = selectedProofOrder;
+                    setSelectedProofOrder(null);
+                    setRejectionModalOrder(target);
+                  }}
+                  className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">close</span>
+                  REJECT
+                </button>
+                <button
+                  onClick={() => {
+                    handleVerifyPayment(selectedProofOrder.id, 'PAID');
+                    setSelectedProofOrder(null);
+                  }}
+                  className="px-5 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">check</span>
+                  ACCEPT (Lunas)
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -55,14 +55,10 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
   const [customerNote, setCustomerNote] = useState<string>(
     'Please separate ice for takeaway cup if possible, thank you!'
   );
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('QRIS');
+  const [paymentMethod] = useState<PaymentMethod>('QRIS');
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
-  const [paymentProofPreview, setPaymentProofPreview] = useState<string>(
-    'https://lh3.googleusercontent.com/aida-public/AB6AXuCNuSSfqiS3v1khxH6BRtBCQ9b37jKCbsg2JTuj-ucMF72QQZXY9t6Mz0F6Cvwx6sN5siVqxibu0h_xdEh1ZvcOwCtZEQIDhtKFMa9CmZh2ViEuZuQUG1ZCYHshbvRDDI0NORSsuMw4NS50olenYApeyBAA4MxX7OPYA6w7f7mZnS10S2oW9iCOcK5XqekTQ-YVBLnQ4ZeNLW84KOIHv5Q72vMyTDu0rkraHf1XslpBgFuqYZhYRL1zyA'
-  );
-  const [paymentProofFileName, setPaymentProofFileName] = useState<string>(
-    'screenshot_receipt_bca_83600.jpg'
-  );
+  const [paymentProofPreview, setPaymentProofPreview] = useState<string>('');
+  const [paymentProofFileName, setPaymentProofFileName] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -150,11 +146,8 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
         pb1_tax: effectivePb1Tax,
         discount: ecoDiscount || 0,
         total: effectiveTotal,
-        payment_method: paymentMethod,
-        payment_status:
-          paymentMethod === 'QRIS'
-            ? 'PAID'
-            : 'PAY AT STORE',
+        payment_method: 'QRIS',
+        payment_status: 'WAITING VERIFICATION',
         order_status: 'NEW',
         customer_note: customerNote,
         payment_proof_url: proofUrl,
@@ -171,10 +164,11 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
           unit_price: item.unit_price,
           subtotal: item.subtotal,
           options_summary: [
+            item.options?.size ? `Size: ${item.options.size}${item.options.size === 'Large' ? ' (+Rp 5.000)' : ''}` : 'Size: Reguler',
             item.options?.temperature,
             item.options?.sweetness,
-            ...(item.options?.toppings || []).map((t) => `+${t.name}`),
-            ...(item.options?.syrups || []).map((s) => `+${s.name}`)
+            ...(item.options?.toppings || []).filter((t) => t.price > 0).map((t) => `+${t.name}`),
+            ...(item.options?.syrups || []).filter((s) => s.price > 0).map((s) => `+${s.name}`)
           ]
             .filter(Boolean)
             .join(' • '),
@@ -496,98 +490,37 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                 </span>
               </div>
 
-              {/* Method Card A: QRIS */}
-              <div
-                onClick={() => setPaymentMethod('QRIS')}
-                className={`rounded-lg p-space-md sm:p-space-lg cursor-pointer transition-all border ${
-                  paymentMethod === 'QRIS'
-                    ? 'bg-surface-container-low/80 shadow-[0_4px_20px_-4px_rgba(14,165,233,0.15)] border-primary-container'
-                    : 'bg-surface-container-lowest border-surface-container hover:bg-surface-container-low/40'
-                }`}
-              >
+              {/* Payment Method Banner: QRIS Only */}
+              <div className="rounded-lg p-space-md sm:p-space-lg bg-surface-container-low/80 shadow-[0_4px_20px_-4px_rgba(14,165,233,0.15)] border border-primary-container">
                 <div className="flex items-start justify-between gap-space-sm">
                   <div className="flex items-center gap-space-md">
-                    <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center shadow-xs ${
-                        paymentMethod === 'QRIS'
-                          ? 'bg-primary-container text-on-primary'
-                          : 'bg-surface-container text-outline'
-                      }`}
-                    >
-                      {paymentMethod === 'QRIS' ? (
-                        <span className="material-symbols-outlined text-[18px]">
-                          check_circle
-                        </span>
-                      ) : (
-                        <span className="w-2.5 h-2.5 rounded-full bg-outline"></span>
-                      )}
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center shadow-xs bg-primary-container text-on-primary">
+                      <span className="material-symbols-outlined text-[18px]">
+                        check_circle
+                      </span>
                     </div>
                     <div>
                       <div className="flex items-center gap-space-xs flex-wrap">
                         <span className="font-headline-sm text-headline-sm text-on-surface font-bold">
-                          QRIS Instant Payment
+                          QRIS (Quick Response Code Indonesian Standard)
                         </span>
                         <span className="px-space-xs py-0.5 rounded bg-primary-fixed text-primary font-label-sm text-[10px] font-bold">
-                          ALL WALLETS & BANKS
+                          ONLINE ORDER EXCLUSIVE
                         </span>
                       </div>
                       <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                        BCA, Mandiri, BRI, GoPay, OVO, ShopeePay, Dana & LinkAja supported
+                        Scan QRIS dengan aplikasi m-Banking (BCA, Mandiri, BRI, BNI) atau E-Wallet (GoPay, OVO, ShopeePay, Dana, LinkAja).
                       </p>
                     </div>
                   </div>
-                  <div className="hidden sm:flex items-center gap-1">
-                    <span className="text-[11px] font-bold text-primary bg-surface-container-lowest px-2 py-1 rounded-full border border-surface-container">
-                      Real-time Hook
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Method Card B: Cash at Cashier */}
-              <div
-                onClick={() => setPaymentMethod('TUNAI')}
-                className={`rounded-lg p-space-md cursor-pointer transition-all border ${
-                  paymentMethod === 'TUNAI'
-                    ? 'bg-surface-container-low/80 shadow-[0_4px_20px_-4px_rgba(14,165,233,0.15)] border-primary-container'
-                    : 'bg-surface-container-lowest border-surface-container opacity-70 hover:opacity-100'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-space-md">
-                    <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center ${
-                        paymentMethod === 'TUNAI'
-                          ? 'bg-primary-container text-on-primary'
-                          : 'bg-surface-container text-outline'
-                      }`}
-                    >
-                      {paymentMethod === 'TUNAI' ? (
-                        <span className="material-symbols-outlined text-[18px]">
-                          check_circle
-                        </span>
-                      ) : (
-                        <span className="w-2.5 h-2.5 rounded-full bg-outline"></span>
-                      )}
-                    </div>
-                    <div>
-                      <span className="font-label-lg text-label-lg text-on-surface font-semibold">
-                        Pay Cash at Cashier Counter (TUNAI)
-                      </span>
-                      <p className="font-body-sm text-body-sm text-on-surface-variant">
-                        Bayar di kasir outlet sebelum/saat pesanan disajikan
-                      </p>
-                    </div>
-                  </div>
-                  <span className="material-symbols-outlined text-outline text-[20px]">
-                    payments
+                  <span className="text-[11px] font-bold text-primary bg-surface-container-lowest px-2.5 py-1 rounded-full border border-surface-container whitespace-nowrap">
+                    Wajib Bukti Transfer
                   </span>
                 </div>
               </div>
 
-              {/* Interactive QRIS Presentation Canvas (When QRIS is selected) */}
-              {paymentMethod === 'QRIS' && (
-                <div className="bg-gradient-to-b from-surface-container-lowest to-surface-container-low rounded-lg p-space-lg sm:p-space-xl shadow-[0_16px_40px_-6px_rgba(14,165,233,0.12)] border border-surface-container">
+              {/* Interactive QRIS Presentation Canvas */}
+              <div className="bg-gradient-to-b from-surface-container-lowest to-surface-container-low rounded-lg p-space-lg sm:p-space-xl shadow-[0_16px_40px_-6px_rgba(14,165,233,0.12)] border border-surface-container">
                   {/* QRIS Brand Bar */}
                   <div className="flex items-center justify-between pb-space-md border-b border-surface-container/60">
                     <div className="flex items-center gap-space-sm">
@@ -815,7 +748,6 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                     )}
                   </div>
                 </div>
-              )}
             </div>
           </div>
 
@@ -938,10 +870,20 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
 
               {/* Master Action Button */}
               <div className="mt-space-lg space-y-space-sm">
+                {!paymentProofPreview && !paymentProofFile && (
+                  <div className="flex items-center gap-1.5 p-2.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 text-xs font-semibold">
+                    <span className="material-symbols-outlined text-[18px] text-amber-500">info</span>
+                    <span>Wajib upload bukti transfer QRIS di atas untuk menyelesaikan pesanan.</span>
+                  </div>
+                )}
                 <button
                   onClick={handlePlaceOrder}
                   disabled={isSubmitting}
-                  className="w-full py-3.5 px-space-lg rounded-full bg-primary-container hover:bg-primary text-on-primary font-label-lg text-label-lg font-bold tracking-wide uppercase shadow-[0_12px_28px_-4px_rgba(14,165,233,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-space-sm cursor-pointer disabled:opacity-50"
+                  className={`w-full py-3.5 px-space-lg rounded-full font-label-lg text-label-lg font-bold tracking-wide uppercase transition-all active:scale-[0.98] flex items-center justify-center gap-space-sm cursor-pointer disabled:opacity-50 ${
+                    !paymentProofPreview && !paymentProofFile
+                      ? 'bg-primary-container/80 hover:bg-primary-container text-on-primary'
+                      : 'bg-primary-container hover:bg-primary text-on-primary shadow-[0_12px_28px_-4px_rgba(14,165,233,0.4)]'
+                  }`}
                   type="button"
                 >
                   {isSubmitting ? (

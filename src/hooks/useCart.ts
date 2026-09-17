@@ -45,10 +45,11 @@ export function useCart() {
   }, [fulfillmentMode]);
 
   const addItem = (product: Product, options: CartItemOption, quantity: number = 1) => {
-    // Calculate unit price: product base price + sum of topping prices + sum of syrup prices
+    // Calculate unit price: product base price + size price + sum of topping prices + sum of syrup prices
+    const sizePrice = options.size === 'Large' ? (options.size_price ?? (product.large_price_addition ?? 5000)) : 0;
     const toppingsPrice = (options.toppings || []).reduce((sum, t) => sum + (t.price || 0), 0);
     const syrupsPrice = (options.syrups || []).reduce((sum, s) => sum + (s.price || 0), 0);
-    const unitPrice = product.price + toppingsPrice + syrupsPrice;
+    const unitPrice = product.price + sizePrice + toppingsPrice + syrupsPrice;
 
     const newItem: CartItem = {
       id: `cart-item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

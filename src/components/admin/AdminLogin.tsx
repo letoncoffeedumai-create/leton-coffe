@@ -1,10 +1,5 @@
 import React, { useState } from 'react';
-import {
-  authService,
-  AuthUserSession,
-  DEFAULT_ADMIN_ACCOUNTS,
-  DefaultAdminAccount
-} from '../../services/authService';
+import { authService, AuthUserSession } from '../../services/authService';
 import { isSupabaseConfigured } from '../../lib/supabase';
 
 interface AdminLoginProps {
@@ -21,12 +16,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const handleSelectPreset = (account: DefaultAdminAccount) => {
-    setEmail(account.email);
-    setPassword(account.password);
-    setErrorMessage(null);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,47 +102,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
           </p>
         </div>
 
-        {/* Quick Demo Credentials Box */}
-        <div className="mb-6 p-4 rounded-xl bg-surface-container-low border border-surface-container space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px] text-primary">key</span>
-              Pilih Akun Cepat (Password: <code className="text-primary font-mono font-bold">letonadmin</code>)
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            {DEFAULT_ADMIN_ACCOUNTS.map((acc) => {
-              const isSelected = email.toLowerCase() === acc.email.toLowerCase();
-              return (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => handleSelectPreset(acc)}
-                  className={`p-2 rounded-lg text-left text-xs transition-all border cursor-pointer flex flex-col justify-between ${
-                    isSelected
-                      ? 'bg-primary text-on-primary border-primary shadow-xs'
-                      : 'bg-surface-container-lowest text-on-surface hover:bg-surface-container border-surface-container'
-                  }`}
-                >
-                  <div className="font-bold flex items-center justify-between">
-                    <span className="truncate">
-                      {acc.role === 'SUPER_ADMIN' ? '👑 Admin Pusat' : `☕ ${acc.name.replace('Lead Barista ', '').replace('Store Supervisor ', '')}`}
-                    </span>
-                  </div>
-                  <span
-                    className={`font-mono text-[10px] truncate mt-1 ${
-                      isSelected ? 'text-primary-container' : 'text-on-surface-variant'
-                    }`}
-                  >
-                    {acc.email}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Error Alert Banner */}
         {errorMessage && (
           <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3 animate-shake">
@@ -193,13 +141,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
               <label className="font-label-md text-label-md font-bold text-on-surface">
                 Password
               </label>
-              <button
-                type="button"
-                onClick={() => setPassword('letonadmin')}
-                className="text-[11px] text-primary hover:underline font-semibold cursor-pointer"
-              >
-                Gunakan "letonadmin"
-              </button>
             </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-on-surface-variant">

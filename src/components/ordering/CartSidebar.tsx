@@ -93,6 +93,9 @@ export const CartSidebar: React.FC<CartSidebarProps> = ({
                 {items.map((item) => {
                   const opts = item.options;
                   const customizationParts: string[] = [];
+                  if (opts.size) {
+                    customizationParts.push(`Size: ${opts.size}${opts.size === 'Large' ? ' (+Rp 5.000)' : ''}`);
+                  }
                   if (opts.temperature) customizationParts.push(opts.temperature);
                   if (opts.sweetness) customizationParts.push(opts.sweetness);
                   if (opts.toppings && opts.toppings.length > 0) {

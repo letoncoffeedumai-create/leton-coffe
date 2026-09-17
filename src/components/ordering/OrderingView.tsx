@@ -413,6 +413,7 @@ export const OrderingView: React.FC<OrderingViewProps> = ({
                           </p>
                         </div>
                         <p className="font-body-sm text-[11px] text-on-surface-variant pl-7 leading-tight">
+                          {item.options.size ? <strong className="text-primary font-bold">Size {item.options.size} • </strong> : null}
                           {item.options.temperature} • {item.options.sweetness}
                           {item.options.toppings.map((t) => ` • +${t.name}`)}
                         </p>
