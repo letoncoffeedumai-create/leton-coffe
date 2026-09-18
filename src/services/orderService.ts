@@ -32,6 +32,57 @@ if (typeof window !== 'undefined') {
   });
 }
 
+let activeRealtimeChannel: any = null;
+
+function ensureRealtimeSubscription() {
+  if (!isSupabaseConfigured || !supabase || activeRealtimeChannel) {
+    return;
+  }
+
+  try {
+    const channelName = `orders-realtime-${Date.now()}`;
+    activeRealtimeChannel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        async () => {
+          try {
+            const fresh = await orderService.getOrders();
+            notifyListeners(fresh);
+          } catch (err) {
+            console.warn('Realtime order update error:', err);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (activeRealtimeChannel && supabase) {
+            try {
+              supabase.removeChannel(activeRealtimeChannel);
+            } catch {
+              // ignore
+            }
+            activeRealtimeChannel = null;
+          }
+        }
+      });
+  } catch (err) {
+    console.warn('Could not establish Supabase realtime channel:', err);
+  }
+}
+
+function cleanupRealtimeSubscription() {
+  if (listeners.size === 0 && activeRealtimeChannel && supabase) {
+    try {
+      supabase.removeChannel(activeRealtimeChannel);
+    } catch {
+      // ignore
+    }
+    activeRealtimeChannel = null;
+  }
+}
+
 export const orderService = {
   async getOrders(outletId?: string): Promise<Order[]> {
     try {
@@ -266,28 +317,11 @@ export const orderService = {
 
   subscribe(listener: OrderListener): () => void {
     listeners.add(listener);
-
-    // If Supabase realtime is configured, also subscribe to postgres changes
-    let supabaseChannel: { unsubscribe: () => void } | null = null;
-    if (isSupabaseConfigured && supabase) {
-      supabaseChannel = supabase
-        .channel('public:orders')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'orders' },
-          async () => {
-            const fresh = await orderService.getOrders();
-            notifyListeners(fresh);
-          }
-        )
-        .subscribe();
-    }
+    ensureRealtimeSubscription();
 
     return () => {
       listeners.delete(listener);
-      if (supabaseChannel) {
-        supabaseChannel.unsubscribe();
-      }
+      cleanupRealtimeSubscription();
     };
   }
 };

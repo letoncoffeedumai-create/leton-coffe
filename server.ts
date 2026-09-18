@@ -527,6 +527,7 @@ async function startServer() {
         customer_phone: orderData.customer_phone || '',
         order_type: orderData.order_type || 'DINE IN',
         table_number: orderData.table_number || '',
+        items: orderData.items || [],
         subtotal: Number(orderData.subtotal) || 0,
         pb1_tax: Number(orderData.pb1_tax) || 0,
         discount: Number(orderData.discount) || 0,
@@ -671,6 +672,27 @@ async function startServer() {
       return res.json(updated);
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Failed to update order status' });
+    }
+  });
+
+  // 5. DELETE /api/orders/:id - Delete an order
+  app.delete('/api/orders/:id', async (req, res) => {
+    try {
+      if (!supabaseAdmin) {
+        return res.status(500).json({ error: 'Supabase is not configured on server' });
+      }
+
+      const orderId = req.params.id;
+      await supabaseAdmin.from('order_items').delete().eq('order_id', orderId);
+      const { error } = await supabaseAdmin.from('orders').delete().eq('id', orderId);
+
+      if (error) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      return res.json({ success: true, message: 'Pesanan berhasil dihapus' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Failed to delete order' });
     }
   });
 
