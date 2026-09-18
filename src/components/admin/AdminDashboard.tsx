@@ -193,6 +193,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   products={products}
                   profile={currentProfile}
                   onRefreshCategories={onRefreshProducts}
+                  initialSubTab={activeTab === 'options' ? 'options' : 'categories'}
                 />
               )}
 

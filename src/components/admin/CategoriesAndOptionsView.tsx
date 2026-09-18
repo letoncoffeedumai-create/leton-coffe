@@ -8,18 +8,26 @@ interface CategoriesAndOptionsViewProps {
   products?: Product[];
   profile?: Profile | null;
   onRefreshCategories: () => void;
+  initialSubTab?: 'categories' | 'options';
 }
 
 export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> = ({
   categories = [],
   products = [],
   profile = null,
-  onRefreshCategories
+  onRefreshCategories,
+  initialSubTab
 }) => {
   const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
 
   // Sub-tab
-  const [activeSubTab, setActiveSubTab] = useState<'categories' | 'options'>('categories');
+  const [activeSubTab, setActiveSubTab] = useState<'categories' | 'options'>(initialSubTab || 'categories');
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   // Modal / Editing states for Categories
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

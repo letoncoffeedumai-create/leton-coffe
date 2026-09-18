@@ -410,6 +410,17 @@ async function startServer() {
 
       const safeFilename = `${folder}/${Date.now()}-${(filename || 'image.jpg').replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
+      // Ensure storage bucket exists
+      try {
+        const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+        const hasBucket = (buckets || []).some((b) => b.name === 'leton-images');
+        if (!hasBucket) {
+          await supabaseAdmin.storage.createBucket('leton-images', { public: true });
+        }
+      } catch (bucketErr) {
+        console.warn('Storage bucket check warning:', bucketErr);
+      }
+
       const { data, error } = await supabaseAdmin.storage
         .from('leton-images')
         .upload(safeFilename, buffer, {
