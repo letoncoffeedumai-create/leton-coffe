@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Barista, WebsiteContent } from '../../types';
+import { contentService } from '../../services/contentService';
 
 interface WebsiteCMSViewProps {
   content: WebsiteContent;
@@ -10,23 +11,90 @@ interface WebsiteCMSViewProps {
 
 export const WebsiteCMSView: React.FC<WebsiteCMSViewProps> = ({
   content,
-  baristas
+  baristas,
+  onUpdateContent,
+  onUpdateBaristas
 }) => {
   const [activeTab, setActiveTab] = useState<'hero' | 'baristas' | 'booth' | 'contact'>('hero');
   const [heroTagline, setHeroTagline] = useState(content.hero.tagline);
   const [heroSubtitle, setHeroSubtitle] = useState(content.hero.subtitle);
   const [localBaristas, setLocalBaristas] = useState<Barista[]>(baristas);
+  const [whatsapp, setWhatsapp] = useState(content?.contact?.whatsapp || '+62 812-3456-7890');
+  const [email, setEmail] = useState((content?.contact as any)?.email || 'hello@letoncoffee.id');
+  const [instagram, setInstagram] = useState(content?.contact?.instagram || '@letoncoffee');
+  const [tiktok, setTiktok] = useState((content?.contact as any)?.tiktok || '@letoncoffee');
+  const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const handleToggleBaristaDuty = (id: string) => {
-    setLocalBaristas(
-      localBaristas.map((b) => (b.id === id ? { ...b, is_on_duty: !b.is_on_duty } : b))
-    );
+  const handleToggleBaristaDuty = async (id: string) => {
+    const updated = localBaristas.map((b) => (b.id === id ? { ...b, is_on_duty: !b.is_on_duty } : b));
+    setLocalBaristas(updated);
+    try {
+      await contentService.saveBaristas(updated);
+      if (onUpdateBaristas) onUpdateBaristas(updated);
+    } catch (err) {
+      console.error('Failed to auto-save barista status:', err);
+    }
   };
 
-  const handleSave = () => {
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+  const handleSaveHero = async () => {
+    setIsSaving(true);
+    try {
+      const newContent: WebsiteContent = {
+        ...content,
+        hero: {
+          ...content.hero,
+          tagline: heroTagline,
+          subtitle: heroSubtitle
+        }
+      };
+      await contentService.saveContent(newContent);
+      if (onUpdateContent) onUpdateContent(newContent);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to save hero content:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveBaristas = async () => {
+    setIsSaving(true);
+    try {
+      await contentService.saveBaristas(localBaristas);
+      if (onUpdateBaristas) onUpdateBaristas(localBaristas);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to save baristas:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveContact = async () => {
+    setIsSaving(true);
+    try {
+      const newContent: WebsiteContent = {
+        ...content,
+        contact: {
+          ...content.contact,
+          whatsapp,
+          email,
+          instagram,
+          tiktok
+        } as any
+      };
+      await contentService.saveContent(newContent);
+      if (onUpdateContent) onUpdateContent(newContent);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to save contact content:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -106,10 +174,11 @@ export const WebsiteCMSView: React.FC<WebsiteCMSViewProps> = ({
             ></textarea>
           </div>
           <button
-            onClick={handleSave}
-            className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-container cursor-pointer"
+            onClick={handleSaveHero}
+            disabled={isSaving}
+            className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-container cursor-pointer transition-colors disabled:opacity-50"
           >
-            Simpan Perubahan Hero
+            {isSaving ? 'Menyimpan...' : 'Simpan Perubahan Hero'}
           </button>
         </div>
       )}
@@ -125,10 +194,11 @@ export const WebsiteCMSView: React.FC<WebsiteCMSViewProps> = ({
               </p>
             </div>
             <button
-              onClick={handleSave}
-              className="px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold"
+              onClick={handleSaveBaristas}
+              disabled={isSaving}
+              className="px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-container cursor-pointer transition-colors disabled:opacity-50"
             >
-              Simpan Jadwal Barista
+              {isSaving ? 'Menyimpan...' : 'Simpan Jadwal Barista'}
             </button>
           </div>
 
@@ -196,7 +266,8 @@ export const WebsiteCMSView: React.FC<WebsiteCMSViewProps> = ({
               <label className="block font-bold mb-1">WhatsApp Customer Service</label>
               <input
                 type="text"
-                defaultValue={content?.contact?.whatsapp || '+62 812-3456-7890'}
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
                 className="w-full p-2.5 rounded-xl bg-surface-container-low border border-surface-container"
               />
             </div>
@@ -204,7 +275,8 @@ export const WebsiteCMSView: React.FC<WebsiteCMSViewProps> = ({
               <label className="block font-bold mb-1">Email Resmi</label>
               <input
                 type="email"
-                defaultValue={(content?.contact as any)?.email || 'hello@letoncoffee.id'}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full p-2.5 rounded-xl bg-surface-container-low border border-surface-container"
               />
             </div>
@@ -212,7 +284,8 @@ export const WebsiteCMSView: React.FC<WebsiteCMSViewProps> = ({
               <label className="block font-bold mb-1">Instagram Handle</label>
               <input
                 type="text"
-                defaultValue={content?.contact?.instagram || '@letoncoffee'}
+                value={instagram}
+                onChange={(e) => setInstagram(e.target.value)}
                 className="w-full p-2.5 rounded-xl bg-surface-container-low border border-surface-container"
               />
             </div>
@@ -220,16 +293,18 @@ export const WebsiteCMSView: React.FC<WebsiteCMSViewProps> = ({
               <label className="block font-bold mb-1">TikTok Handle</label>
               <input
                 type="text"
-                defaultValue={(content?.contact as any)?.tiktok || '@letoncoffee'}
+                value={tiktok}
+                onChange={(e) => setTiktok(e.target.value)}
                 className="w-full p-2.5 rounded-xl bg-surface-container-low border border-surface-container"
               />
             </div>
           </div>
           <button
-            onClick={handleSave}
-            className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-container cursor-pointer"
+            onClick={handleSaveContact}
+            disabled={isSaving}
+            className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-container cursor-pointer transition-colors disabled:opacity-50"
           >
-            Simpan Kontak
+            {isSaving ? 'Menyimpan...' : 'Simpan Kontak'}
           </button>
         </div>
       )}

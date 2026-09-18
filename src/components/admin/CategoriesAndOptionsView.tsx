@@ -53,6 +53,7 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
   const [newOptionPrice, setNewOptionPrice] = useState(4000);
   const [newOptionCat, setNewOptionCat] = useState<'SNACK' | 'BEVERAGE' | 'GENERAL'>('BEVERAGE');
   const [editingTopping, setEditingTopping] = useState<ToppingItem | null>(null);
+  const [toppingToDelete, setToppingToDelete] = useState<ToppingItem | null>(null);
 
   // Fetch real toppings from Supabase on mount
   const loadToppings = async () => {
@@ -283,16 +284,21 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
     }
   };
 
-  const handleDeleteOption = async (id: string, name: string) => {
-    if (!window.confirm(`Yakin ingin menghapus topping "${name}"?`)) return;
+  const handleDeleteOption = (topping: ToppingItem) => {
+    setToppingToDelete(topping);
+  };
+
+  const handleConfirmDeleteTopping = async () => {
+    if (!toppingToDelete) return;
     setIsProcessing(true);
     try {
-      await productService.deleteTopping(id);
-      showFeedback('success', 'Topping berhasil dihapus dari Supabase');
+      await productService.deleteTopping(toppingToDelete.id);
+      showFeedback('success', `Topping "${toppingToDelete.name}" berhasil dihapus dari Supabase`);
+      setToppingToDelete(null);
       await loadToppings();
     } catch (err: any) {
       console.error('Error deleting topping:', err);
-      showFeedback('error', 'Gagal menghapus topping');
+      showFeedback('error', `Gagal menghapus topping: ${err?.message || 'Terjadi kesalahan'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -726,7 +732,7 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDeleteOption(opt.id, opt.name)}
+                            onClick={() => handleDeleteOption(opt)}
                             disabled={isProcessing}
                             className="text-xs font-bold text-red-600 hover:underline cursor-pointer disabled:opacity-40"
                           >
@@ -1130,6 +1136,52 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
               >
                 <span className="material-symbols-outlined text-[16px]">delete</span>
                 <span>{isProcessing ? 'Menghapus...' : 'Ya, Hapus Kategori'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI: Hapus Topping */}
+      {toppingToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-surface-container-lowest max-w-md w-full rounded-2xl p-6 shadow-2xl border border-surface-container">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 text-red-600 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">delete</span>
+              </div>
+              <div>
+                <h4 className="font-title-lg font-bold text-red-700 dark:text-red-400">
+                  Konfirmasi Hapus Topping
+                </h4>
+                <p className="text-xs text-on-surface-variant mt-1">
+                  Apakah Anda yakin ingin menghapus topping{' '}
+                  <strong>&ldquo;{toppingToDelete.name}&rdquo;</strong> (Rp {toppingToDelete.price.toLocaleString('id-ID')})?
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-on-surface-variant mb-5">
+              Topping ini akan dihapus secara permanen dari daftar opsi tambahan di Supabase.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-surface-container">
+              <button
+                type="button"
+                onClick={() => setToppingToDelete(null)}
+                disabled={isProcessing}
+                className="px-4 py-2 rounded-full bg-surface-container text-xs font-semibold text-on-surface hover:bg-surface-container-high cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteTopping}
+                disabled={isProcessing}
+                className="px-5 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+              >
+                <span className="material-symbols-outlined text-[16px]">delete</span>
+                <span>{isProcessing ? 'Menghapus...' : 'Ya, Hapus Topping'}</span>
               </button>
             </div>
           </div>
