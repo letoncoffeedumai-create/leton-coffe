@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CartItem, Order, OrderType, Outlet, PaymentMethod } from '../../types';
-import { uploadImageToStorage } from '../../lib/supabase';
+import { uploadImageToStorage, supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { INITIAL_OUTLETS } from '../../data/initialData';
 
 interface CheckoutViewProps {
@@ -71,18 +71,40 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
     // Fetch active QRIS image uploaded by admin from Supabase
     const loadQris = async () => {
       try {
-        const res = await fetch(`/api/settings/qris?outlet_id=${activeOutlet?.id || 'all'}`);
+        const outletKey = activeOutlet?.id || 'all';
+        const res = await fetch(`/api/settings/qris?outlet_id=${outletKey}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.qris_image_url) {
-            setQrisImageUrl(data.qris_image_url);
+          const imageUrl = data.qris_image_url || data.qris_url;
+          if (imageUrl) {
+            setQrisImageUrl(imageUrl);
           }
           if (data.nmid) {
             setQrisNmid(data.nmid);
           }
+          return;
         }
       } catch (err) {
-        console.error('Failed to load active QRIS from settings:', err);
+        console.warn('API loadQris failed, trying client supabase:', err);
+      }
+
+      // Direct Supabase fallback
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { data } = await supabase
+            .from('website_content')
+            .select('data')
+            .eq('section_key', 'payment_qris')
+            .maybeSingle();
+
+          if (data?.data) {
+            const imageUrl = data.data.qris_image_url || data.data.qris_url;
+            if (imageUrl) setQrisImageUrl(imageUrl);
+            if (data.data.nmid) setQrisNmid(data.data.nmid);
+          }
+        } catch (sbErr) {
+          console.error('Supabase QRIS fetch exception:', sbErr);
+        }
       }
     };
     loadQris();

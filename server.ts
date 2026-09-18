@@ -1027,19 +1027,43 @@ async function startServer() {
         return res.status(500).json({ error: 'Supabase is not configured on server' });
       }
 
-      const { data } = await supabaseAdmin
-        .from('website_content')
-        .select('data')
-        .eq('section_key', 'payment_qris')
-        .maybeSingle();
+      const outletId = req.query.outlet_id ? String(req.query.outlet_id) : 'all';
 
-      const qrisData = data?.data || {
-        qris_url: '',
-        nmid: 'ID1020038918239',
-        merchant_name: 'LETON COFFEE DUMAI'
-      };
+      let qrisData: any = null;
+      if (outletId !== 'all') {
+        const { data: outletQris } = await supabaseAdmin
+          .from('website_content')
+          .select('data')
+          .eq('section_key', `payment_qris_${outletId}`)
+          .maybeSingle();
+        if (outletQris?.data?.qris_image_url || outletQris?.data?.qris_url) {
+          qrisData = outletQris.data;
+        }
+      }
 
-      return res.json(qrisData);
+      if (!qrisData) {
+        const { data } = await supabaseAdmin
+          .from('website_content')
+          .select('data')
+          .eq('section_key', 'payment_qris')
+          .maybeSingle();
+
+        qrisData = data?.data || {
+          qris_url: '',
+          qris_image_url: '',
+          nmid: 'ID1020038918239',
+          merchant_name: 'LETON COFFEE DUMAI'
+        };
+      }
+
+      const imageUrl = qrisData.qris_image_url || qrisData.qris_url || '';
+      return res.json({
+        ...qrisData,
+        qris_url: imageUrl,
+        qris_image_url: imageUrl,
+        nmid: qrisData.nmid || 'ID1020038918239',
+        merchant_name: qrisData.merchant_name || 'LETON COFFEE DUMAI'
+      });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Failed to load QRIS settings' });
     }
@@ -1052,26 +1076,39 @@ async function startServer() {
         return res.status(500).json({ error: 'Supabase is not configured on server' });
       }
 
-      const { qris_url, nmid, merchant_name } = req.body;
+      const { qris_url, qris_image_url, nmid, merchant_name, outlet_id } = req.body;
+      const imageUrl = qris_image_url || qris_url || '';
+      const targetOutlet = outlet_id || 'all';
+      const sectionKey = targetOutlet === 'all' ? 'payment_qris' : `payment_qris_${targetOutlet}`;
 
       const { data: existing } = await supabaseAdmin
         .from('website_content')
         .select('data')
-        .eq('section_key', 'payment_qris')
+        .eq('section_key', sectionKey)
         .maybeSingle();
 
       const payload = {
-        qris_url: qris_url !== undefined ? qris_url : existing?.data?.qris_url || '',
+        outlet_id: targetOutlet,
+        qris_url: imageUrl || existing?.data?.qris_url || '',
+        qris_image_url: imageUrl || existing?.data?.qris_image_url || existing?.data?.qris_url || '',
         nmid: nmid !== undefined ? nmid : existing?.data?.nmid || 'ID1020038918239',
         merchant_name: merchant_name !== undefined ? merchant_name : existing?.data?.merchant_name || 'LETON COFFEE DUMAI',
         updated_at: new Date().toISOString()
       };
 
       await supabaseAdmin.from('website_content').upsert({
-        section_key: 'payment_qris',
+        section_key: sectionKey,
         data: payload,
         updated_at: new Date().toISOString()
       });
+
+      if (targetOutlet === 'all') {
+        await supabaseAdmin.from('website_content').upsert({
+          section_key: 'payment_qris',
+          data: payload,
+          updated_at: new Date().toISOString()
+        });
+      }
 
       return res.json({ success: true, ...payload });
     } catch (err: any) {

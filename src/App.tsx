@@ -158,6 +158,7 @@ export default function App() {
   // Initial Auth & Data Load
   useEffect(() => {
     let unsubscribeAuth: (() => void) | undefined;
+    let unsubscribeOrders: (() => void) | undefined;
 
     const init = async () => {
       // Check auth session
@@ -187,6 +188,13 @@ export default function App() {
             window.history.pushState(null, '', '/admin/login');
             setActivePage('admin-login');
           }
+        }
+      });
+
+      // Listen for real-time order state updates
+      unsubscribeOrders = orderService.subscribe((updatedOrders) => {
+        if (Array.isArray(updatedOrders)) {
+          setOrders(updatedOrders);
         }
       });
 
@@ -239,6 +247,7 @@ export default function App() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
       if (unsubscribeAuth) unsubscribeAuth();
+      if (unsubscribeOrders) unsubscribeOrders();
       clearTimeout(fallbackTimer);
     };
   }, [syncRouteWithState]);

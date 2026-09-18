@@ -28,6 +28,8 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Available toppings from database
   const [availableToppings, setAvailableToppings] = useState<ToppingItem[]>([]);
@@ -211,6 +213,20 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
     }
   };
 
+  const handleConfirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+    setIsDeleting(true);
+    try {
+      await productService.deleteProduct(productToDelete.id);
+      onRefreshProducts();
+      setProductToDelete(null);
+    } catch (err) {
+      console.error('Error deleting product:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Controls */}
@@ -325,14 +341,24 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
               </button>
 
               {isSuperAdmin && (
-                <button
-                  onClick={() => handleOpenEdit(prod)}
-                  className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container cursor-pointer"
-                  title="Edit Menu"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[18px]">edit</span>
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleOpenEdit(prod)}
+                    className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container cursor-pointer"
+                    title="Edit Menu"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                  </button>
+                  <button
+                    onClick={() => setProductToDelete(prod)}
+                    className="p-1.5 rounded-lg text-on-surface-variant hover:text-error hover:bg-error-container/20 cursor-pointer"
+                    title="Hapus Menu"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -722,6 +748,41 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Product Confirmation Modal */}
+      {productToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-surface-container-lowest max-w-sm w-full rounded-2xl p-6 shadow-2xl border border-surface-container">
+            <div className="w-12 h-12 rounded-full bg-error-container/30 text-error flex items-center justify-center mx-auto mb-4">
+              <span className="material-symbols-outlined text-[28px]">delete_forever</span>
+            </div>
+            <h3 className="font-title-lg font-bold text-center text-on-surface mb-2">
+              Hapus Menu Produk?
+            </h3>
+            <p className="text-xs text-center text-on-surface-variant mb-6">
+              Menu <strong className="text-on-surface">{productToDelete.name}</strong> akan dihapus permanen dari Supabase database dan tidak akan tampil lagi di daftar pesanan pelanggan.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setProductToDelete(null)}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-full bg-surface-container text-xs font-semibold text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteProduct}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-full bg-error text-on-error text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+              >
+                {isDeleting ? 'Menghapus...' : 'Ya, Hapus'}
+              </button>
+            </div>
           </div>
         </div>
       )}

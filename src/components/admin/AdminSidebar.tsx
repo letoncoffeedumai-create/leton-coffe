@@ -26,6 +26,13 @@ interface AdminSidebarProps {
   activeOrdersCount?: number;
 }
 
+interface NavItem {
+  id: AdminTab;
+  label: string;
+  icon: string;
+  badge?: number;
+}
+
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   currentTab,
   onSelectTab,
@@ -36,10 +43,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 }) => {
   const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
 
-  // Super Admin Navigation Items
-  const superAdminNav = [
+  // Super Admin Navigation Items (Operational kitchen orders handled by Outlet Admins)
+  const superAdminNav: NavItem[] = [
     { id: 'dashboard' as AdminTab, label: 'Dashboard', icon: 'dashboard' },
-    { id: 'orders' as AdminTab, label: 'Semua Pesanan', icon: 'receipt_long', badge: activeOrdersCount > 0 ? activeOrdersCount : undefined },
     { id: 'menu' as AdminTab, label: 'Menu & Produk', icon: 'restaurant_menu' },
     { id: 'categories' as AdminTab, label: 'Kategori', icon: 'category' },
     { id: 'options' as AdminTab, label: 'Topping & Syrup', icon: 'liquor' },
@@ -54,7 +60,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   ];
 
   // Outlet Admin Navigation Items
-  const outletAdminNav = [
+  const outletAdminNav: NavItem[] = [
     { id: 'dashboard' as AdminTab, label: 'Dashboard', icon: 'dashboard' },
     { id: 'orders' as AdminTab, label: 'Pesanan Outlet', icon: 'receipt_long', badge: activeOrdersCount > 0 ? activeOrdersCount : undefined },
     { id: 'menu' as AdminTab, label: 'Menu Outlet', icon: 'restaurant_menu' },
