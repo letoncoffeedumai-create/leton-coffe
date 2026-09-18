@@ -64,6 +64,29 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
 
   // 15-Minute Countdown
   const [timeLeft, setTimeLeft] = useState<number>(14 * 60 + 48);
+  const [qrisImageUrl, setQrisImageUrl] = useState<string>('');
+  const [qrisNmid, setQrisNmid] = useState<string>('ID1020049281902');
+
+  useEffect(() => {
+    // Fetch active QRIS image uploaded by admin from Supabase
+    const loadQris = async () => {
+      try {
+        const res = await fetch(`/api/settings/qris?outlet_id=${activeOutlet?.id || 'all'}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.qris_image_url) {
+            setQrisImageUrl(data.qris_image_url);
+          }
+          if (data.nmid) {
+            setQrisNmid(data.nmid);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load active QRIS from settings:', err);
+      }
+    };
+    loadQris();
+  }, [activeOutlet?.id]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -537,7 +560,7 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                           {activeOutlet?.name || 'Leton Coffee'}
                         </p>
                         <p className="font-body-sm text-[11px] text-on-surface-variant leading-none">
-                          NMID: ID1020049281902 • A01
+                          NMID: {qrisNmid} • A01
                         </p>
                       </div>
                     </div>
@@ -556,56 +579,67 @@ export const CheckoutView: React.FC<CheckoutViewProps> = ({
                     {/* QR Code Graphic Card */}
                     <div className="relative bg-surface-container-lowest p-space-md rounded-lg shadow-[0_8px_32px_rgba(14,165,233,0.12)] flex flex-col items-center justify-center border border-surface-container">
                       <div className="w-48 h-48 bg-surface-container-lowest flex items-center justify-center relative p-1">
-                        <svg
-                          className="w-full h-full text-on-surface fill-current"
-                          viewBox="0 0 160 160"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <rect fill="#011D35" height="40" rx="6" width="40" x="10" y="10" />
-                          <rect fill="#FFFFFF" height="24" rx="2" width="24" x="18" y="18" />
-                          <rect fill="#0EA5E9" height="12" rx="2" width="12" x="24" y="24" />
-                          <rect fill="#011D35" height="40" rx="6" width="40" x="110" y="10" />
-                          <rect fill="#FFFFFF" height="24" rx="2" width="24" x="118" y="18" />
-                          <rect fill="#0EA5E9" height="12" rx="2" width="12" x="124" y="24" />
-                          <rect fill="#011D35" height="40" rx="6" width="40" x="10" y="110" />
-                          <rect fill="#FFFFFF" height="24" rx="2" width="24" x="18" y="118" />
-                          <rect fill="#0EA5E9" height="12" rx="2" width="12" x="24" y="124" />
-                          <rect fill="#011D35" height="24" rx="4" width="24" x="118" y="118" />
-                          <rect fill="#FFFFFF" height="12" rx="2" width="12" x="124" y="124" />
-                          <rect fill="#0EA5E9" height="4" width="4" x="128" y="128" />
-                          <rect fill="#011D35" height="6" width="6" x="56" y="14" />
-                          <rect fill="#011D35" height="6" width="6" x="66" y="14" />
-                          <rect fill="#011D35" height="6" width="6" x="76" y="14" />
-                          <rect fill="#011D35" height="6" width="6" x="86" y="14" />
-                          <rect fill="#011D35" height="6" width="6" x="96" y="14" />
-                          <rect fill="#011D35" height="6" width="6" x="56" y="24" />
-                          <rect fill="#011D35" height="6" width="6" x="76" y="24" />
-                          <rect fill="#011D35" height="6" width="6" x="96" y="24" />
-                          <rect fill="#011D35" height="6" width="6" x="56" y="34" />
-                          <rect fill="#011D35" height="6" width="6" x="66" y="34" />
-                          <rect fill="#011D35" height="6" width="6" x="86" y="34" />
-                          <rect fill="#011D35" height="6" width="6" x="14" y="56" />
-                          <rect fill="#011D35" height="6" width="6" x="24" y="56" />
-                          <rect fill="#011D35" height="6" width="6" x="34" y="56" />
-                          <rect fill="#011D35" height="6" width="6" x="44" y="56" />
-                          <rect fill="#011D35" height="6" width="6" x="64" y="56" />
-                          <rect fill="#011D35" height="6" width="6" x="84" y="56" />
-                          <rect fill="#011D35" height="6" width="6" x="104" y="56" />
-                          <rect fill="#011D35" height="6" width="6" x="124" y="56" />
-                          <rect fill="#011D35" height="6" width="6" x="144" y="56" />
-                          <rect fill="#011D35" height="6" width="6" x="14" y="66" />
-                          <rect fill="#011D35" height="6" width="6" x="34" y="66" />
-                          <rect fill="#011D35" height="6" width="6" x="54" y="66" />
-                          <rect fill="#011D35" height="6" width="6" x="114" y="66" />
-                          <rect fill="#011D35" height="6" width="6" x="134" y="66" />
-                        </svg>
-                        <div className="absolute inset-0 m-auto w-10 h-10 bg-surface-container-lowest rounded-full p-1 shadow-md flex items-center justify-center">
-                          <div className="w-full h-full rounded-full bg-primary-container flex items-center justify-center text-on-primary">
-                            <span className="material-symbols-outlined text-[18px]">
-                              local_cafe
-                            </span>
-                          </div>
-                        </div>
+                        {qrisImageUrl ? (
+                          <img
+                            src={qrisImageUrl}
+                            alt={`QRIS ${activeOutlet?.name || 'Leton Coffee'}`}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-contain rounded-lg"
+                          />
+                        ) : (
+                          <>
+                            <svg
+                              className="w-full h-full text-on-surface fill-current"
+                              viewBox="0 0 160 160"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <rect fill="#011D35" height="40" rx="6" width="40" x="10" y="10" />
+                              <rect fill="#FFFFFF" height="24" rx="2" width="24" x="18" y="18" />
+                              <rect fill="#0EA5E9" height="12" rx="2" width="12" x="24" y="24" />
+                              <rect fill="#011D35" height="40" rx="6" width="40" x="110" y="10" />
+                              <rect fill="#FFFFFF" height="24" rx="2" width="24" x="118" y="18" />
+                              <rect fill="#0EA5E9" height="12" rx="2" width="12" x="124" y="24" />
+                              <rect fill="#011D35" height="40" rx="6" width="40" x="10" y="110" />
+                              <rect fill="#FFFFFF" height="24" rx="2" width="24" x="18" y="118" />
+                              <rect fill="#0EA5E9" height="12" rx="2" width="12" x="24" y="124" />
+                              <rect fill="#011D35" height="24" rx="4" width="24" x="118" y="118" />
+                              <rect fill="#FFFFFF" height="12" rx="2" width="12" x="124" y="124" />
+                              <rect fill="#0EA5E9" height="4" width="4" x="128" y="128" />
+                              <rect fill="#011D35" height="6" width="6" x="56" y="14" />
+                              <rect fill="#011D35" height="6" width="6" x="66" y="14" />
+                              <rect fill="#011D35" height="6" width="6" x="76" y="14" />
+                              <rect fill="#011D35" height="6" width="6" x="86" y="14" />
+                              <rect fill="#011D35" height="6" width="6" x="96" y="14" />
+                              <rect fill="#011D35" height="6" width="6" x="56" y="24" />
+                              <rect fill="#011D35" height="6" width="6" x="76" y="24" />
+                              <rect fill="#011D35" height="6" width="6" x="96" y="24" />
+                              <rect fill="#011D35" height="6" width="6" x="56" y="34" />
+                              <rect fill="#011D35" height="6" width="6" x="66" y="34" />
+                              <rect fill="#011D35" height="6" width="6" x="86" y="34" />
+                              <rect fill="#011D35" height="6" width="6" x="14" y="56" />
+                              <rect fill="#011D35" height="6" width="6" x="24" y="56" />
+                              <rect fill="#011D35" height="6" width="6" x="34" y="56" />
+                              <rect fill="#011D35" height="6" width="6" x="44" y="56" />
+                              <rect fill="#011D35" height="6" width="6" x="64" y="56" />
+                              <rect fill="#011D35" height="6" width="6" x="84" y="56" />
+                              <rect fill="#011D35" height="6" width="6" x="104" y="56" />
+                              <rect fill="#011D35" height="6" width="6" x="124" y="56" />
+                              <rect fill="#011D35" height="6" width="6" x="144" y="56" />
+                              <rect fill="#011D35" height="6" width="6" x="14" y="66" />
+                              <rect fill="#011D35" height="6" width="6" x="34" y="66" />
+                              <rect fill="#011D35" height="6" width="6" x="54" y="66" />
+                              <rect fill="#011D35" height="6" width="6" x="114" y="66" />
+                              <rect fill="#011D35" height="6" width="6" x="134" y="66" />
+                            </svg>
+                            <div className="absolute inset-0 m-auto w-10 h-10 bg-surface-container-lowest rounded-full p-1 shadow-md flex items-center justify-center">
+                              <div className="w-full h-full rounded-full bg-primary-container flex items-center justify-center text-on-primary">
+                                <span className="material-symbols-outlined text-[18px]">
+                                  local_cafe
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div className="mt-space-sm bg-surface-container-low px-space-md py-1 rounded-full flex items-center gap-1.5 text-primary font-label-sm text-label-sm border border-surface-container">
                         <span className="w-2 h-2 rounded-full bg-primary-container animate-ping"></span>

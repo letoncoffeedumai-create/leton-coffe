@@ -378,11 +378,18 @@ export const OrdersManagementView: React.FC<OrdersManagementViewProps> = ({
                             ? 'bg-emerald-100 text-emerald-800'
                             : ord.payment_status === 'WAITING VERIFICATION'
                             ? 'bg-amber-100 text-amber-800'
+                            : ord.payment_status === 'PAYMENT REJECTED'
+                            ? 'bg-red-100 text-red-800'
                             : 'bg-slate-100 text-slate-700'
                         }`}
                       >
                         {ord.payment_status}
                       </span>
+                      {ord.rejection_reason && (
+                        <span className="block text-[10px] text-red-600 mt-1 max-w-[160px] truncate" title={ord.rejection_reason}>
+                          Alasan: {ord.rejection_reason}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

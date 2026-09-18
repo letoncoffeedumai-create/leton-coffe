@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { Category, Outlet, Product, Profile } from '../../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Category, Outlet, Product, Profile, ToppingItem } from '../../types';
 import { productService } from '../../services/productService';
 import { normalizeOutletId } from '../../services/authService';
+import { uploadImageToStorage } from '../../lib/supabase';
 
 interface MenuCMSViewProps {
   products: Product[];
@@ -28,6 +29,19 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
+  // Available toppings from database
+  const [availableToppings, setAvailableToppings] = useState<ToppingItem[]>([]);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    productService.getToppings().then((data) => {
+      if (Array.isArray(data)) {
+        setAvailableToppings(data);
+      }
+    });
+  }, []);
+
   // Form State
   const [formData, setFormData] = useState<{
     name: string;
@@ -39,6 +53,8 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
     is_bestseller: boolean;
     badge: string;
     outlet_ids: string[];
+    requires_topping: boolean;
+    allowed_topping_ids: string[];
   }>({
     name: '',
     category_id: categories[0]?.id || 'cat-signature',
@@ -48,7 +64,9 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
     is_active: true,
     is_bestseller: false,
     badge: '',
-    outlet_ids: ['outlet-sudirman', 'outlet-ratusima', 'outlet-letgo']
+    outlet_ids: ['outlet-sudirman', 'outlet-ratusima', 'outlet-letgo'],
+    requires_topping: true,
+    allowed_topping_ids: []
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -84,6 +102,7 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
 
   const handleOpenAdd = () => {
     setEditingProduct(null);
+    setUploadError(null);
     setFormData({
       name: '',
       category_id: categories[0]?.id || 'cat-signature',
@@ -93,13 +112,16 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
       is_active: true,
       is_bestseller: false,
       badge: '',
-      outlet_ids: ['outlet-sudirman', 'outlet-ratusima', 'outlet-letgo']
+      outlet_ids: ['outlet-sudirman', 'outlet-ratusima', 'outlet-letgo'],
+      requires_topping: true,
+      allowed_topping_ids: []
     });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (prod: Product) => {
     setEditingProduct(prod);
+    setUploadError(null);
     setFormData({
       name: prod.name,
       category_id: prod.category_id,
@@ -109,7 +131,9 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
       is_active: prod.is_active,
       is_bestseller: Boolean(prod.is_bestseller),
       badge: prod.badge || '',
-      outlet_ids: prod.outlet_ids || ['outlet-sudirman', 'outlet-ratusima', 'outlet-letgo']
+      outlet_ids: prod.outlet_ids || ['outlet-sudirman', 'outlet-ratusima', 'outlet-letgo'],
+      requires_topping: prod.requires_topping !== false,
+      allowed_topping_ids: prod.allowed_topping_ids || []
     });
     setIsModalOpen(true);
   };
@@ -120,6 +144,31 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
       onRefreshProducts();
     } catch (err) {
       console.error('Error toggling product status:', err);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('File harus berupa gambar (JPG, PNG, WEBP)');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setUploadError(null);
+    try {
+      const res = await uploadImageToStorage('menu', file);
+      if (res.url) {
+        setFormData((prev) => ({ ...prev, image_url: res.url }));
+      } else {
+        setUploadError('Gagal mengunggah foto produk');
+      }
+    } catch (err: any) {
+      setUploadError(err?.message || 'Terjadi kesalahan saat upload foto.');
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -142,7 +191,9 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
         is_active: formData.is_active,
         is_bestseller: formData.is_bestseller,
         badge: formData.badge ? formData.badge.trim() : undefined,
-        outlet_ids: formData.outlet_ids
+        outlet_ids: formData.outlet_ids,
+        requires_topping: formData.requires_topping,
+        allowed_topping_ids: formData.allowed_topping_ids
       };
 
       if (editingProduct) {
@@ -362,17 +413,230 @@ export const MenuCMSView: React.FC<MenuCMSViewProps> = ({
                 ></textarea>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">
-                  URL Foto Produk
-                </label>
-                <input
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full px-3.5 py-2 rounded-xl bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none"
-                />
+              {/* Foto Produk Section */}
+              <div className="space-y-2 p-3 rounded-xl bg-surface-container-low border border-surface-container">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-on-surface">
+                    Foto Produk (Supabase Storage)
+                  </label>
+                  {formData.image_url && formData.image_url.includes('supabase.co') && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      <span className="material-symbols-outlined text-[12px]">cloud_done</span>
+                      Supabase Storage
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-start gap-3">
+                  {formData.image_url ? (
+                    <img
+                      src={formData.image_url}
+                      alt="Preview"
+                      className="w-20 h-20 rounded-xl object-cover border border-surface-container shrink-0 bg-surface-container"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-xl border border-dashed border-surface-container flex flex-col items-center justify-center text-outline shrink-0 bg-surface-container/50">
+                      <span className="material-symbols-outlined text-xl">image</span>
+                      <span className="text-[9px]">Belum ada</span>
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-highest hover:bg-surface-container text-xs font-semibold text-on-surface cursor-pointer border border-surface-container transition-colors">
+                      <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                      <span>{isUploadingImage ? 'Mengunggah...' : 'Upload dari Perangkat'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isUploadingImage}
+                        onChange={handleFileUpload}
+                        className="sr-only"
+                      />
+                    </label>
+
+                    {isUploadingImage && (
+                      <p className="text-[11px] text-primary animate-pulse flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">sync</span>
+                        Mengunggah foto ke Supabase Storage (leton-images/menu)...
+                      </p>
+                    )}
+
+                    {uploadError && (
+                      <p className="text-[11px] text-error font-medium">{uploadError}</p>
+                    )}
+
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant block mb-1">
+                        Atau URL Gambar:
+                      </span>
+                      <input
+                        type="url"
+                        value={formData.image_url}
+                        onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                        placeholder="https://..."
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-surface-container border border-surface-container text-xs text-on-surface focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pengaturan Topping Per Produk */}
+              <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container space-y-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    Produk ini membutuhkan topping?
+                  </label>
+                  <p className="text-[11px] text-on-surface-variant">
+                    Tentukan apakah customer dapat menambahkan topping saat memesan produk ini.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-bold cursor-pointer transition-colors ${
+                      formData.requires_topping
+                        ? 'bg-primary text-on-primary border-primary shadow-xs'
+                        : 'bg-surface-container text-on-surface border-surface-container'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="requires_topping"
+                      className="sr-only"
+                      checked={formData.requires_topping}
+                      onChange={() => setFormData({ ...formData, requires_topping: true })}
+                    />
+                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                    <span>Ya</span>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-bold cursor-pointer transition-colors ${
+                      !formData.requires_topping
+                        ? 'bg-primary text-on-primary border-primary shadow-xs'
+                        : 'bg-surface-container text-on-surface border-surface-container'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="requires_topping"
+                      className="sr-only"
+                      checked={!formData.requires_topping}
+                      onChange={() => setFormData({ ...formData, requires_topping: false })}
+                    />
+                    <span className="material-symbols-outlined text-[16px]">cancel</span>
+                    <span>Tidak</span>
+                  </label>
+                </div>
+
+                {/* If Ya, show toppings selection */}
+                {formData.requires_topping && (
+                  <div className="pt-2 border-t border-surface-container/60 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-on-surface">
+                        Topping yang Diizinkan untuk Produk Ini:
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              allowed_topping_ids: availableToppings.map((t) => t.id)
+                            })
+                          }
+                          className="text-[10px] text-primary font-bold hover:underline"
+                        >
+                          Pilih Semua
+                        </button>
+                        <span className="text-[10px] text-outline">•</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              allowed_topping_ids: []
+                            })
+                          }
+                          className="text-[10px] text-on-surface-variant font-bold hover:underline"
+                        >
+                          Semua Aktif (Default)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto pr-1 space-y-1.5">
+                      {availableToppings.map((top) => {
+                        const isChecked =
+                          formData.allowed_topping_ids.length === 0 ||
+                          formData.allowed_topping_ids.includes(top.id);
+
+                        return (
+                          <label
+                            key={top.id}
+                            className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                              isChecked
+                                ? 'bg-surface-container-highest border-primary/30 text-on-surface'
+                                : 'bg-surface-container/40 border-surface-container/60 text-outline'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (formData.allowed_topping_ids.length === 0) {
+                                    // If was defaulting to all, switch to explicit array
+                                    if (e.target.checked) {
+                                      setFormData({
+                                        ...formData,
+                                        allowed_topping_ids: [top.id]
+                                      });
+                                    } else {
+                                      setFormData({
+                                        ...formData,
+                                        allowed_topping_ids: availableToppings
+                                          .filter((t) => t.id !== top.id)
+                                          .map((t) => t.id)
+                                      });
+                                    }
+                                  } else {
+                                    if (e.target.checked) {
+                                      setFormData({
+                                        ...formData,
+                                        allowed_topping_ids: [
+                                          ...formData.allowed_topping_ids,
+                                          top.id
+                                        ]
+                                      });
+                                    } else {
+                                      setFormData({
+                                        ...formData,
+                                        allowed_topping_ids: formData.allowed_topping_ids.filter(
+                                          (id) => id !== top.id
+                                        )
+                                      });
+                                    }
+                                  }
+                                }}
+                                className="rounded text-primary focus:ring-primary w-3.5 h-3.5"
+                              />
+                              <span className="font-semibold">{top.name}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant uppercase">
+                                {top.category}
+                              </span>
+                            </div>
+                            <span className="font-bold text-primary text-[11px]">
+                              +Rp {Number(top.price).toLocaleString('id-ID')}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-6 pt-2">

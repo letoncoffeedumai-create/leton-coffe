@@ -275,6 +275,19 @@ export const productService = {
   },
 
   async getProducts(): Promise<Product[]> {
+    try {
+      const res = await fetch('/api/products');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(data));
+          return data as Product[];
+        }
+      }
+    } catch (apiErr) {
+      console.warn('API getProducts failed, trying client supabase:', apiErr);
+    }
+
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase
         .from('products')
@@ -298,6 +311,32 @@ export const productService = {
   },
 
   async saveProduct(product: Product): Promise<Product> {
+    try {
+      // Check if product exists in current cache to decide POST or PUT
+      const current = await this.getProducts();
+      const existing = current.find((p) => p.id === product.id);
+
+      const url = existing ? `/api/products/${product.id}` : '/api/products';
+      const method = existing ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(product)
+      });
+
+      if (res.ok) {
+        const saved = await res.json();
+        const updated = existing
+          ? current.map((p) => (p.id === product.id ? saved : p))
+          : [saved, ...current];
+        localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updated));
+        return saved;
+      }
+    } catch (apiErr) {
+      console.warn('API saveProduct failed, fallback to client supabase:', apiErr);
+    }
+
     if (isSupabaseConfigured && supabase) {
       await supabase.from('products').upsert(product);
     }
@@ -314,10 +353,43 @@ export const productService = {
   },
 
   async createProduct(product: Product): Promise<Product> {
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(product)
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        const current = await this.getProducts();
+        const updated = [saved, ...current.filter((p) => p.id !== saved.id)];
+        localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updated));
+        return saved;
+      }
+    } catch (apiErr) {
+      console.warn('API createProduct failed:', apiErr);
+    }
     return this.saveProduct(product);
   },
 
   async updateProduct(id: string, updates: Partial<Product>): Promise<Product | null> {
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        const current = await this.getProducts();
+        const updated = current.map((p) => (p.id === id ? saved : p));
+        localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(updated));
+        return saved;
+      }
+    } catch (apiErr) {
+      console.warn('API updateProduct failed:', apiErr);
+    }
+
     const current = await this.getProducts();
     const target = current.find((p) => p.id === id);
     if (!target) return null;
@@ -326,6 +398,14 @@ export const productService = {
   },
 
   async deleteProduct(productId: string): Promise<void> {
+    try {
+      await fetch(`/api/products/${productId}`, {
+        method: 'DELETE'
+      });
+    } catch (apiErr) {
+      console.warn('API deleteProduct failed:', apiErr);
+    }
+
     if (isSupabaseConfigured && supabase) {
       await supabase.from('products').delete().eq('id', productId);
     }
@@ -338,7 +418,57 @@ export const productService = {
     const current = await this.getProducts();
     const target = current.find((p) => p.id === productId);
     if (!target) return null;
-    const updatedProduct = { ...target, is_active: !target.is_active };
-    return this.saveProduct(updatedProduct);
+    return this.updateProduct(productId, { is_active: !target.is_active });
+  },
+
+  // --------------------------------------------------------------------------
+  // Toppings API
+  // --------------------------------------------------------------------------
+  async getToppings(): Promise<any[]> {
+    try {
+      const res = await fetch('/api/toppings');
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (apiErr) {
+      console.warn('Failed to fetch toppings:', apiErr);
+    }
+    return [];
+  },
+
+  async createTopping(topping: { name: string; price: number; category?: string; is_active?: boolean }): Promise<any> {
+    const res = await fetch('/api/toppings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(topping)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Gagal menambahkan topping');
+    }
+    return await res.json();
+  },
+
+  async updateTopping(id: string, updates: Partial<{ name: string; price: number; category: string; is_active: boolean }>): Promise<any> {
+    const res = await fetch(`/api/toppings/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Gagal mengubah topping');
+    }
+    return await res.json();
+  },
+
+  async deleteTopping(id: string): Promise<void> {
+    const res = await fetch(`/api/toppings/${id}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Gagal menghapus topping');
+    }
   }
 };

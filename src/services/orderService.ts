@@ -34,13 +34,27 @@ if (typeof window !== 'undefined') {
 
 export const orderService = {
   async getOrders(outletId?: string): Promise<Order[]> {
+    try {
+      const url = outletId ? `/api/orders?outlet_id=${encodeURIComponent(outletId)}` : '/api/orders';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(data));
+          return data as Order[];
+        }
+      }
+    } catch (apiErr) {
+      console.warn('Failed to fetch orders from /api/orders, checking client supabase / storage:', apiErr);
+    }
+
     if (isSupabaseConfigured && supabase) {
       let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
       if (outletId) {
         query = query.eq('outlet_id', outletId);
       }
       const { data, error } = await query;
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         return data as Order[];
       }
     }
@@ -69,6 +83,24 @@ export const orderService = {
   },
 
   async createOrder(order: Order): Promise<Order> {
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order)
+      });
+      if (res.ok) {
+        const created = await res.json();
+        const current = await this.getOrders();
+        const updated = [created, ...current.filter((o) => o.id !== created.id)];
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updated));
+        notifyListeners(updated);
+        return created;
+      }
+    } catch (apiErr) {
+      console.warn('API createOrder failed, trying client supabase:', apiErr);
+    }
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { error } = await supabase.from('orders').insert({
@@ -127,6 +159,27 @@ export const orderService = {
   ): Promise<Order | null> {
     const now = new Date().toISOString();
 
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_status: orderStatus,
+          rejection_reason: rejectionReason
+        })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const current = await this.getOrders();
+        const updatedList = current.map((o) => (o.id === orderId ? { ...o, ...updated } : o));
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedList));
+        notifyListeners(updatedList);
+        return updated;
+      }
+    } catch (apiErr) {
+      console.warn('API updateOrderStatus failed, trying client supabase:', apiErr);
+    }
+
     if (isSupabaseConfigured && supabase) {
       await supabase
         .from('orders')
@@ -161,6 +214,27 @@ export const orderService = {
     rejectionReason?: string
   ): Promise<Order | null> {
     const now = new Date().toISOString();
+
+    try {
+      const res = await fetch(`/api/orders/${orderId}/payment-status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_status: paymentStatus,
+          rejection_reason: rejectionReason
+        })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const current = await this.getOrders();
+        const updatedList = current.map((o) => (o.id === orderId ? { ...o, ...updated } : o));
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedList));
+        notifyListeners(updatedList);
+        return updated;
+      }
+    } catch (apiErr) {
+      console.warn('API updatePaymentStatus failed, trying client supabase:', apiErr);
+    }
 
     if (isSupabaseConfigured && supabase) {
       await supabase

@@ -35,9 +35,39 @@ export const PUBLIC_STORAGE_BUCKET = 'leton-images';
 export const RECEIPTS_STORAGE_BUCKET = 'leton-receipts';
 
 export async function uploadImageToStorage(
-  folder: 'menu' | 'cabang' | 'barista' | 'cerita' | 'receipts' | 'logo' | 'open-booth' | 'other',
+  folder: 'menu' | 'cabang' | 'barista' | 'cerita' | 'receipts' | 'logo' | 'open-booth' | 'payment' | 'qris' | 'other',
   file: File
 ): Promise<{ url: string; error?: string }> {
+  try {
+    // 1. Try server-side upload proxy first (uses Supabase Service Role for guaranteed storage permissions)
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folder,
+        filename: file.name,
+        base64Data,
+        contentType: file.type || 'image/jpeg'
+      })
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      if (json.url) {
+        return { url: json.url };
+      }
+    }
+  } catch (apiErr) {
+    console.warn('API upload proxy failed, trying direct client storage:', apiErr);
+  }
+
   const isReceipt = folder === 'receipts';
   const targetBucket = isReceipt ? RECEIPTS_STORAGE_BUCKET : PUBLIC_STORAGE_BUCKET;
   const filename = `${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
@@ -51,32 +81,23 @@ export async function uploadImageToStorage(
           upsert: false
         });
 
-      if (error) {
-        console.warn('Supabase storage upload error, falling back to object URL:', error);
-        return { url: URL.createObjectURL(file) };
-      }
-
-      // If it's a private receipt, NEVER generate public URL.
-      // Return a signed URL or path for secure reference.
-      if (isReceipt) {
-        const { data: signedData, error: signedError } = await supabase.storage
-          .from(RECEIPTS_STORAGE_BUCKET)
-          .createSignedUrl(data.path, 86400); // 24 hours validity
-
-        if (!signedError && signedData?.signedUrl) {
-          return { url: signedData.signedUrl };
+      if (!error && data) {
+        if (isReceipt) {
+          const { data: signedData } = await supabase.storage
+            .from(RECEIPTS_STORAGE_BUCKET)
+            .createSignedUrl(data.path, 86400);
+          if (signedData?.signedUrl) return { url: signedData.signedUrl };
+          return { url: data.path };
         }
-        return { url: data.path };
+
+        const { data: publicUrlData } = supabase.storage
+          .from(PUBLIC_STORAGE_BUCKET)
+          .getPublicUrl(data.path);
+
+        return { url: publicUrlData.publicUrl };
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from(PUBLIC_STORAGE_BUCKET)
-        .getPublicUrl(data.path);
-
-      return { url: publicUrlData.publicUrl };
     } catch (err: unknown) {
-      console.warn('Storage upload exception, falling back:', err);
-      return { url: URL.createObjectURL(file) };
+      console.warn('Direct storage upload exception, falling back:', err);
     }
   }
 
@@ -84,7 +105,7 @@ export async function uploadImageToStorage(
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      resolve({ url: e.target?.result as string || URL.createObjectURL(file) });
+      resolve({ url: (e.target?.result as string) || URL.createObjectURL(file) });
     };
     reader.onerror = () => {
       resolve({ url: URL.createObjectURL(file) });

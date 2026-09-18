@@ -69,8 +69,19 @@ export interface Product {
   sweetness_options?: string[];
   toppings?: ProductOptionItem[];
   syrups?: ProductOptionItem[];
+  requires_topping?: boolean;
+  allowed_topping_ids?: string[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface ToppingItem {
+  id: string;
+  name: string;
+  price: number;
+  category: 'SNACK' | 'BEVERAGE' | 'GENERAL';
+  is_active: boolean;
+  created_at?: string;
 }
 
 export interface CartItemOption {

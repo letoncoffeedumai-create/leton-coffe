@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Order, Outlet, Profile } from '../../types';
 import { normalizeOutletId } from '../../services/authService';
+import { TrafficAnalyticsView } from './TrafficAnalyticsView';
 
 interface OutletAnalyticsViewProps {
   orders: Order[];
@@ -15,6 +16,7 @@ export const OutletAnalyticsView: React.FC<OutletAnalyticsViewProps> = ({
   outlets,
   selectedOutletFilter
 }) => {
+  const [activeSubTab, setActiveSubTab] = useState<'sales' | 'traffic'>('sales');
   const isSuperAdmin = profile?.role === 'SUPER_ADMIN';
 
   // Determine effective outlet scope
@@ -137,7 +139,7 @@ export const OutletAnalyticsView: React.FC<OutletAnalyticsViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Scope Banner */}
+      {/* Scope Banner & Sub-tab Switcher */}
       <div className="p-4 rounded-2xl bg-surface-container-lowest border border-surface-container flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -153,14 +155,46 @@ export const OutletAnalyticsView: React.FC<OutletAnalyticsViewProps> = ({
           </div>
         </div>
 
-        <div className="text-xs font-semibold px-3 py-1.5 rounded-full bg-surface-container-low text-on-surface-variant flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-          Data Transaksi Real-time
+        {/* Sub-tab Switcher */}
+        <div className="flex items-center bg-surface-container-low p-1 rounded-xl border border-surface-container text-xs">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('sales')}
+            className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+              activeSubTab === 'sales'
+                ? 'bg-surface-container-lowest text-primary shadow-xs'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[16px]">payments</span>
+            <span>Penjualan & Transaksi</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('traffic')}
+            className={`px-3.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+              activeSubTab === 'traffic'
+                ? 'bg-surface-container-lowest text-primary shadow-xs'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[16px]">monitoring</span>
+            <span>Web Traffic Pengunjung</span>
+          </button>
         </div>
       </div>
 
-      {/* Row 1: Key Sales KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Render Traffic Analytics */}
+      {activeSubTab === 'traffic' ? (
+        <TrafficAnalyticsView
+          outlets={outlets}
+          currentOutletFilter={selectedOutletFilter}
+          isSuperAdmin={isSuperAdmin}
+        />
+      ) : (
+        <>
+          {/* Row 1: Key Sales KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Sales Hari Ini */}
         <div className="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container shadow-xs">
           <div className="flex items-center justify-between text-on-surface-variant mb-2">
@@ -393,26 +427,41 @@ export const OutletAnalyticsView: React.FC<OutletAnalyticsViewProps> = ({
               Struktur telemetri untuk memantau kunjungan halaman menu & tingkat konversi
             </p>
 
-            {/* Empty State Banner */}
-            <div className="p-6 rounded-xl bg-surface-container-low border border-dashed border-outline/40 text-center space-y-3">
-              <div className="w-12 h-12 mx-auto rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center">
-                <span className="material-symbols-outlined text-[24px]">signal_cellular_alt</span>
+            {/* Real-time Traffic Banner */}
+            <div className="p-6 rounded-xl bg-surface-container-low border border-surface-container text-center space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <span className="material-symbols-outlined text-[24px]">monitoring</span>
               </div>
               <p className="font-bold text-sm text-on-surface">
-                Belum Terhubung ke Provider Web Analytics
+                Pelacakan Web Traffic Supabase Aktif
               </p>
               <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-                Untuk menjaga akurasi data tanpa estimasi palsu, modul ini siap dihubungkan dengan Google Analytics 4 (Measurement ID) atau Cloudflare Web Analytics melalui panel Settings.
+                Setiap kunjungan halaman menu, landing page, dan checkout tercatat secara langsung ke Supabase dengan pelacakan perangkat dan grafik harian.
               </p>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('traffic')}
+                  className="px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">visibility</span>
+                  <span>Buka Tab Web Traffic Lengkap</span>
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-surface-container flex items-center justify-between text-xs text-outline">
-            <span>Metrik: Unik Visitor, Menu Pageviews, Conversion Rate</span>
-            <span className="font-medium text-primary">Status: Idle</span>
+            <span>Metrik: Unik Visitor, Menu Pageviews, Device Distribution</span>
+            <span className="font-medium text-emerald-600 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Tracking Aktif
+            </span>
           </div>
         </div>
       </div>
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 };

@@ -243,6 +243,28 @@ export default function App() {
     };
   }, [syncRouteWithState]);
 
+  // Web Traffic Tracking (pageview ping to Supabase)
+  useEffect(() => {
+    if (isLoading) return;
+    const isMobile = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
+    const deviceType = isMobile ? 'mobile' : 'desktop';
+    const pagePath = activePage === 'home' ? '/' : `/${activePage}`;
+
+    fetch('/api/traffic/ping', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        page_path: pagePath,
+        outlet_id: selectedOutletId || null,
+        device_type: deviceType,
+        referrer: document.referrer || null,
+        user_agent: navigator.userAgent
+      })
+    }).catch(() => {
+      // silently ignore tracking errors
+    });
+  }, [activePage, selectedOutletId, isLoading]);
+
   const currentOutlet: Outlet =
     (outlets || []).find((o) => o?.id === selectedOutletId) ||
     (outlets || [])[0] ||

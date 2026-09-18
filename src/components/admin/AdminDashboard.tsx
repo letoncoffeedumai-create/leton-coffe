@@ -237,7 +237,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* TAB: SETTINGS (Super Admin Only) */}
               {activeTab === 'settings' && (
-                <AdminSettingsView />
+                <AdminSettingsView outlets={outlets} />
               )}
 
               {/* TAB: PROFILE (Outlet Admin) */}

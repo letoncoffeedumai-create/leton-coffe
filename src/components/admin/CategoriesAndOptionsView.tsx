@@ -1,14 +1,7 @@
-import React, { useState } from 'react';
-import { Category, Product, Profile } from '../../types';
+import React, { useEffect, useState } from 'react';
+import { Category, Product, Profile, ToppingItem } from '../../types';
 import { productService } from '../../services/productService';
-
-interface CustomOption {
-  id: string;
-  name: string;
-  category: 'TOPPING' | 'SYRUP' | 'DAIRY' | 'SHOT';
-  price: number;
-  is_active: boolean;
-}
+import { generateCategorySlug } from '../../lib/slug';
 
 interface CategoriesAndOptionsViewProps {
   categories: Category[];
@@ -34,6 +27,8 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
 
   // Form fields
   const [formName, setFormName] = useState('');
+  const [formSlug, setFormSlug] = useState('');
+  const [isManualSlug, setIsManualSlug] = useState(false);
   const [formOrder, setFormOrder] = useState<number>(1);
   const [formActive, setFormActive] = useState<boolean>(true);
 
@@ -51,20 +46,32 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
     products: Product[];
   } | null>(null);
 
-  // Options state
-  const [options, setOptions] = useState<CustomOption[]>([
-    { id: 'opt-aren', name: 'Gula Aren Organik', category: 'SYRUP', price: 3000, is_active: true },
-    { id: 'opt-vanilla', name: 'French Vanilla Syrup', category: 'SYRUP', price: 4000, is_active: true },
-    { id: 'opt-caramel', name: 'Salted Caramel Syrup', category: 'SYRUP', price: 4000, is_active: true },
-    { id: 'opt-shot', name: 'Extra Single Origin Shot', category: 'SHOT', price: 6000, is_active: true },
-    { id: 'opt-oat', name: 'Oat Milk Sub (Dairy Free)', category: 'DAIRY', price: 7000, is_active: true },
-    { id: 'opt-jelly', name: 'Coffee Jelly Topping', category: 'TOPPING', price: 5000, is_active: true },
-    { id: 'opt-grass', name: 'Cincau Hitam Tradisional', category: 'TOPPING', price: 4000, is_active: true },
-    { id: 'opt-boba', name: 'Brown Sugar Pearl', category: 'TOPPING', price: 5000, is_active: true }
-  ]);
+  // Options & Toppings state
+  const [toppings, setToppings] = useState<ToppingItem[]>([]);
+  const [isLoadingToppings, setIsLoadingToppings] = useState(false);
   const [newOptionName, setNewOptionName] = useState('');
   const [newOptionPrice, setNewOptionPrice] = useState(4000);
-  const [newOptionCat, setNewOptionCat] = useState<'TOPPING' | 'SYRUP' | 'DAIRY' | 'SHOT'>('TOPPING');
+  const [newOptionCat, setNewOptionCat] = useState<'SNACK' | 'BEVERAGE' | 'GENERAL'>('BEVERAGE');
+  const [editingTopping, setEditingTopping] = useState<ToppingItem | null>(null);
+
+  // Fetch real toppings from Supabase on mount
+  const loadToppings = async () => {
+    setIsLoadingToppings(true);
+    try {
+      const data = await productService.getToppings();
+      if (Array.isArray(data)) {
+        setToppings(data);
+      }
+    } catch (err) {
+      console.error('Failed to load toppings:', err);
+    } finally {
+      setIsLoadingToppings(false);
+    }
+  };
+
+  useEffect(() => {
+    loadToppings();
+  }, []);
 
   // Sorted categories
   const sortedCategories = [...categories].sort(
@@ -86,6 +93,8 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
       ? Math.max(...categories.map((c) => c.display_order || 0)) + 1
       : 1;
     setFormName('');
+    setFormSlug('');
+    setIsManualSlug(false);
     setFormOrder(nextOrder);
     setFormActive(true);
     setIsAddModalOpen(true);
@@ -96,11 +105,13 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
     if (!isSuperAdmin) return;
     setEditingCategory(cat);
     setFormName(cat.name);
+    setFormSlug(cat.slug);
+    setIsManualSlug(true);
     setFormOrder(cat.display_order || 1);
     setFormActive(cat.is_active !== false);
   };
 
-  // Save Add
+  // Save Add Category
   const handleSaveAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSuperAdmin) return;
@@ -116,7 +127,7 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
         display_order: Number(formOrder) || 1,
         is_active: formActive
       });
-      showFeedback('success', 'Kategori berhasil ditambahkan');
+      showFeedback('success', 'Kategori berhasil ditambahkan ke Supabase');
       setIsAddModalOpen(false);
       await onRefreshCategories();
     } catch (err: any) {
@@ -233,31 +244,81 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
     }
   };
 
-  // Option handlers
-  const handleAddOption = (e: React.FormEvent) => {
+  // Option & Topping handlers
+  const handleAddOption = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOptionName.trim()) return;
 
-    const newOpt: CustomOption = {
-      id: `opt-${Date.now()}`,
-      name: newOptionName.trim(),
-      category: newOptionCat,
-      price: Number(newOptionPrice),
-      is_active: true
-    };
-
-    setOptions([...options, newOpt]);
-    setNewOptionName('');
+    setIsProcessing(true);
+    try {
+      await productService.createTopping({
+        name: newOptionName.trim(),
+        category: newOptionCat,
+        price: Number(newOptionPrice) || 0,
+        is_active: true
+      });
+      showFeedback('success', `Topping "${newOptionName}" berhasil ditambahkan ke Supabase`);
+      setNewOptionName('');
+      setNewOptionPrice(4000);
+      await loadToppings();
+    } catch (err: any) {
+      console.error('Error creating topping:', err);
+      showFeedback('error', `Gagal menambahkan topping: ${err?.message || 'Terjadi kesalahan'}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleToggleOption = (id: string) => {
-    setOptions(
-      options.map((opt) => (opt.id === id ? { ...opt, is_active: !opt.is_active } : opt))
-    );
+  const handleToggleOption = async (id: string, currentActive: boolean) => {
+    setIsProcessing(true);
+    try {
+      await productService.updateTopping(id, { is_active: !currentActive });
+      showFeedback('success', 'Status topping berhasil diubah');
+      await loadToppings();
+    } catch (err: any) {
+      console.error('Error toggling topping:', err);
+      showFeedback('error', 'Gagal mengubah status topping');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleDeleteOption = (id: string) => {
-    setOptions(options.filter((opt) => opt.id !== id));
+  const handleDeleteOption = async (id: string, name: string) => {
+    if (!window.confirm(`Yakin ingin menghapus topping "${name}"?`)) return;
+    setIsProcessing(true);
+    try {
+      await productService.deleteTopping(id);
+      showFeedback('success', 'Topping berhasil dihapus dari Supabase');
+      await loadToppings();
+    } catch (err: any) {
+      console.error('Error deleting topping:', err);
+      showFeedback('error', 'Gagal menghapus topping');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSaveEditTopping = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTopping || !editingTopping.name.trim()) return;
+
+    setIsProcessing(true);
+    try {
+      await productService.updateTopping(editingTopping.id, {
+        name: editingTopping.name.trim(),
+        price: Number(editingTopping.price) || 0,
+        category: editingTopping.category,
+        is_active: editingTopping.is_active
+      });
+      showFeedback('success', 'Topping berhasil diperbarui di Supabase');
+      setEditingTopping(null);
+      await loadToppings();
+    } catch (err: any) {
+      console.error('Error updating topping:', err);
+      showFeedback('error', 'Gagal memperbarui topping');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -525,7 +586,7 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Add Option Form */}
+          {/* Add Option / Topping Form */}
           {isSuperAdmin && (
             <form
               onSubmit={handleAddOption}
@@ -533,34 +594,33 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
             >
               <div className="flex-1 min-w-[200px]">
                 <label className="block text-xs font-bold text-on-surface mb-1">
-                  Nama Topping / Syrup
+                  Nama Topping / Add-on <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Hazelnut Syrup"
+                  placeholder="Contoh: Keju Parut, Boba, Saus Tartar"
                   value={newOptionName}
                   onChange={(e) => setNewOptionName(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none focus:border-primary-container"
                 />
               </div>
 
-              <div className="w-36">
-                <label className="block text-xs font-bold text-on-surface mb-1">Kategori</label>
+              <div className="w-44">
+                <label className="block text-xs font-bold text-on-surface mb-1">Kategori Topping</label>
                 <select
                   value={newOptionCat}
                   onChange={(e) => setNewOptionCat(e.target.value as any)}
                   className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none"
                 >
-                  <option value="TOPPING">TOPPING</option>
-                  <option value="SYRUP">SYRUP</option>
-                  <option value="DAIRY">SUSU / DAIRY</option>
-                  <option value="SHOT">EXTRA SHOT</option>
+                  <option value="BEVERAGE">🥤 Minuman (Beverage)</option>
+                  <option value="SNACK">🍟 Makanan / Snack</option>
+                  <option value="GENERAL">✨ Semua Menu (General)</option>
                 </select>
               </div>
 
-              <div className="w-32">
-                <label className="block text-xs font-bold text-on-surface mb-1">Biaya (IDR)</label>
+              <div className="w-36">
+                <label className="block text-xs font-bold text-on-surface mb-1">Harga Tambahan (Rp)</label>
                 <input
                   type="number"
                   step={500}
@@ -573,69 +633,201 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
 
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors cursor-pointer"
+                disabled={isProcessing}
+                className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors cursor-pointer disabled:opacity-50"
               >
-                + Tambah Add-on
+                {isProcessing ? 'Menyimpan...' : '+ Tambah Topping'}
               </button>
             </form>
           )}
 
-          {/* Options Table */}
+          {/* Options / Toppings Table */}
           <div className="bg-surface-container-lowest rounded-2xl border border-surface-container overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-surface-container flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-on-surface">Daftar Topping & Add-on (Supabase)</h4>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Topping ini dapat ditautkan ke kategori Snack atau Minuman, atau produk tertentu.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={loadToppings}
+                disabled={isLoadingToppings}
+                className="text-xs font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <span className={`material-symbols-outlined text-[15px] ${isLoadingToppings ? 'animate-spin' : ''}`}>
+                  refresh
+                </span>
+                Muat Ulang
+              </button>
+            </div>
+
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-container-low text-[11px] font-bold text-on-surface-variant uppercase tracking-wider border-b border-surface-container">
-                  <th className="py-3 px-4">Nama Add-on</th>
-                  <th className="py-3 px-4">Tipe</th>
+                  <th className="py-3 px-4">Nama Topping</th>
+                  <th className="py-3 px-4">Tipe Menu</th>
                   <th className="py-3 px-4">Harga Tambahan</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   {isSuperAdmin && <th className="py-3 px-4 text-right">Aksi</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container text-xs">
-                {options.map((opt) => (
-                  <tr key={opt.id} className="hover:bg-surface-container-low/40">
-                    <td className="py-3 px-4 font-bold text-on-surface">{opt.name}</td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-container text-primary">
-                        {opt.category}
-                      </span>
+                {toppings.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-outline">
+                      {isLoadingToppings ? 'Memuat data topping...' : 'Belum ada topping. Tambahkan topping di atas.'}
                     </td>
-                    <td className="py-3 px-4 font-semibold text-primary">
-                      + Rp {opt.price.toLocaleString('id-ID')}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          opt.is_active
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-red-50 text-red-700'
-                        }`}
-                      >
-                        {opt.is_active ? 'Tersedia' : 'Nonaktif'}
-                      </span>
-                    </td>
-                    {isSuperAdmin && (
-                      <td className="py-3 px-4 text-right space-x-2">
-                        <button
-                          onClick={() => handleToggleOption(opt.id)}
-                          className="text-xs font-bold text-primary hover:underline cursor-pointer"
-                        >
-                          {opt.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteOption(opt.id)}
-                          className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
-                        >
-                          Hapus
-                        </button>
-                      </td>
-                    )}
                   </tr>
-                ))}
+                ) : (
+                  toppings.map((opt) => (
+                    <tr key={opt.id} className="hover:bg-surface-container-low/40">
+                      <td className="py-3 px-4 font-bold text-on-surface">{opt.name}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          opt.category === 'SNACK'
+                            ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
+                            : opt.category === 'BEVERAGE'
+                            ? 'bg-blue-100 text-blue-900 dark:bg-blue-950/40 dark:text-blue-300'
+                            : 'bg-surface-container text-primary'
+                        }`}>
+                          {opt.category === 'SNACK' ? '🍟 Snack' : opt.category === 'BEVERAGE' ? '🥤 Minuman' : '✨ Umum'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-primary">
+                        + Rp {Number(opt.price || 0).toLocaleString('id-ID')}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            opt.is_active
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                              : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                          }`}
+                        >
+                          {opt.is_active ? 'Tersedia' : 'Nonaktif'}
+                        </span>
+                      </td>
+                      {isSuperAdmin && (
+                        <td className="py-3 px-4 text-right space-x-2">
+                          <button
+                            onClick={() => handleToggleOption(opt.id, opt.is_active)}
+                            disabled={isProcessing}
+                            className="text-xs font-bold text-primary hover:underline cursor-pointer disabled:opacity-40"
+                          >
+                            {opt.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                          </button>
+                          <button
+                            onClick={() => setEditingTopping(opt)}
+                            disabled={isProcessing}
+                            className="text-xs font-bold text-amber-700 hover:underline cursor-pointer disabled:opacity-40"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOption(opt.id, opt.name)}
+                            disabled={isProcessing}
+                            className="text-xs font-bold text-red-600 hover:underline cursor-pointer disabled:opacity-40"
+                          >
+                            Hapus
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+
+          {/* Edit Topping Modal */}
+          {editingTopping && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+              <div className="bg-surface-container-lowest max-w-md w-full rounded-2xl p-6 shadow-2xl border border-surface-container">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-surface-container">
+                  <h4 className="font-title-lg font-bold text-on-surface">Edit Topping / Add-on</h4>
+                  <button
+                    onClick={() => setEditingTopping(null)}
+                    className="p-1 rounded-lg text-outline hover:text-on-surface cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                </div>
+                <form onSubmit={handleSaveEditTopping} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">
+                      Nama Topping <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editingTopping.name}
+                      onChange={(e) => setEditingTopping({ ...editingTopping, name: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-on-surface mb-1">Kategori Menu</label>
+                      <select
+                        value={editingTopping.category || 'BEVERAGE'}
+                        onChange={(e) => setEditingTopping({ ...editingTopping, category: e.target.value as any })}
+                        className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none"
+                      >
+                        <option value="BEVERAGE">🥤 Minuman</option>
+                        <option value="SNACK">🍟 Snack</option>
+                        <option value="GENERAL">✨ Umum</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-on-surface mb-1">Harga Tambahan (Rp)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={500}
+                        value={editingTopping.price}
+                        onChange={(e) => setEditingTopping({ ...editingTopping, price: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        checked={editingTopping.is_active}
+                        onChange={(e) => setEditingTopping({ ...editingTopping, is_active: e.target.checked })}
+                        className="rounded text-primary focus:ring-primary h-4 w-4"
+                      />
+                      <span className="text-xs font-bold text-on-surface">Topping Aktif / Tersedia</span>
+                    </label>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-4 border-t border-surface-container">
+                    <button
+                      type="button"
+                      onClick={() => setEditingTopping(null)}
+                      disabled={isProcessing}
+                      className="px-4 py-2 rounded-full bg-surface-container text-xs font-semibold text-on-surface cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isProcessing}
+                      className="px-5 py-2 rounded-full bg-primary text-on-primary font-bold text-xs cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      {isProcessing ? 'Menyimpan...' : 'Simpan Perubahan'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -666,11 +858,49 @@ export const CategoriesAndOptionsView: React.FC<CategoriesAndOptionsViewProps> =
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Mocktail & Tonics"
+                  placeholder="Contoh: Snack & Finger Food"
                   value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormName(val);
+                    if (!isManualSlug) {
+                      setFormSlug(generateCategorySlug(val));
+                    }
+                  }}
                   className="w-full px-3 py-2.5 rounded-xl bg-surface-container-low border border-surface-container text-xs text-on-surface focus:outline-none focus:border-primary"
                 />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-on-surface">
+                    Slug Kategori (URL identifier)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsManualSlug(!isManualSlug)}
+                    className="text-[11px] text-primary hover:underline cursor-pointer font-semibold"
+                  >
+                    {isManualSlug ? 'Auto-generate' : 'Edit Manual'}
+                  </button>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-outline font-mono">#</span>
+                  <input
+                    type="text"
+                    required
+                    value={formSlug || (formName ? generateCategorySlug(formName) : '')}
+                    onChange={(e) => {
+                      setIsManualSlug(true);
+                      setFormSlug(generateCategorySlug(e.target.value));
+                    }}
+                    placeholder="snack-finger-food"
+                    className="w-full pl-7 pr-3 py-2 rounded-xl bg-surface-container-low border border-surface-container text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <p className="text-[10px] text-on-surface-variant mt-1">
+                  Slug dibuat otomatis dari nama kategori dan digunakan untuk filter & tab menu.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
