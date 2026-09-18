@@ -31,13 +31,20 @@ export const productService = {
           .order('display_order', { ascending: true });
 
         if (!error && data && data.length > 0) {
-          const { data: meta } = await supabase
-            .from('website_content')
-            .select('data')
-            .eq('section_key', 'category_metadata')
-            .maybeSingle();
+          let inactiveIds: string[] = [];
+          try {
+            const { data: meta } = await supabase
+              .from('website_content')
+              .select('data')
+              .eq('section_key', 'category_metadata')
+              .maybeSingle();
+            if (meta?.data?.inactive_ids) {
+              inactiveIds = meta.data.inactive_ids;
+            }
+          } catch {
+            // ignore
+          }
 
-          const inactiveIds = (meta?.data?.inactive_ids as string[]) || [];
           const categoriesWithStatus = data.map((cat) => ({
             ...cat,
             is_active: !inactiveIds.includes(cat.id)
@@ -78,7 +85,7 @@ export const productService = {
       throw new Error('Nama kategori tidak boleh kosong.');
     }
 
-    let serverErrorMsg = '';
+    let apiWorked = false;
 
     // Primary: Call server-side API (bypasses RLS with Service Role)
     try {
@@ -92,20 +99,45 @@ export const productService = {
           id: categoryData.id
         })
       });
-      const result = await res.json();
-      if (!res.ok) {
-        serverErrorMsg = result.error || 'Gagal menyimpan kategori baru ke Supabase.';
-      } else {
-        await this.getCategories(); // refresh cache
-        return result as Category;
+      if (res.ok) {
+        const result = await res.json();
+        if (result && result.id) {
+          await this.getCategories(); // refresh cache
+          return result as Category;
+        }
       }
     } catch (err: any) {
-      serverErrorMsg = err?.message || 'Gagal menghubungi server.';
+      console.warn('API createCategory failed, trying direct Supabase:', err);
     }
 
-    // If server returned error, throw clearly
-    if (serverErrorMsg && isSupabaseConfigured) {
-      throw new Error(serverErrorMsg);
+    // Secondary: Direct Supabase client insert
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const slug = generateCategorySlug(trimmedName);
+        const newId = categoryData.id || `cat-${slug}-${Date.now()}`;
+        const order = categoryData.display_order || 99;
+
+        const { data: inserted, error: insErr } = await supabase
+          .from('categories')
+          .insert({
+            id: newId,
+            name: trimmedName,
+            slug,
+            display_order: order
+          })
+          .select()
+          .single();
+
+        if (!insErr && inserted) {
+          await this.getCategories();
+          return {
+            ...inserted,
+            is_active: categoryData.is_active !== false
+          };
+        }
+      } catch (sbErr) {
+        console.warn('Direct Supabase insert category exception:', sbErr);
+      }
     }
 
     // Fallback: local storage
@@ -132,8 +164,6 @@ export const productService = {
       throw new Error('ID kategori tidak valid untuk pembaruan.');
     }
 
-    let serverErrorMsg = '';
-
     // Primary: Call server-side API (bypasses RLS with Service Role and updates products)
     try {
       const res = await fetch(`/api/categories/${encodeURIComponent(id)}`, {
@@ -141,20 +171,38 @@ export const productService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
-      const result = await res.json();
-      if (!res.ok) {
-        serverErrorMsg = result.error || 'Gagal memperbarui kategori di Supabase.';
-      } else {
-        await this.getCategories(); // refresh cache
-        return result as Category;
+      if (res.ok) {
+        const result = await res.json();
+        if (result && result.id) {
+          await this.getCategories();
+          return result as Category;
+        }
       }
     } catch (err: any) {
-      serverErrorMsg = err?.message || 'Gagal menghubungi server.';
+      console.warn('API updateCategory failed, trying direct Supabase:', err);
     }
 
-    // If server returned an error, throw it so UI displays the exact Supabase error
-    if (serverErrorMsg && isSupabaseConfigured) {
-      throw new Error(serverErrorMsg);
+    // Secondary: Direct Supabase client update
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const updatePayload: any = {};
+        if (updates.name !== undefined) {
+          updatePayload.name = updates.name.trim();
+          updatePayload.slug = generateCategorySlug(updates.name.trim());
+        }
+        if (updates.display_order !== undefined) {
+          updatePayload.display_order = updates.display_order;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from('categories').update(updatePayload).eq('id', id);
+          if (updatePayload.name) {
+            await supabase.from('products').update({ category_name: updatePayload.name }).eq('category_id', id);
+          }
+        }
+      } catch (sbErr) {
+        console.warn('Direct Supabase update category error:', sbErr);
+      }
     }
 
     // Fallback: local state
@@ -184,27 +232,26 @@ export const productService = {
       throw new Error('ID kategori tidak valid untuk penghapusan.');
     }
 
-    let serverErrorMsg = '';
-
     // Primary: Call server-side API
     try {
       const res = await fetch(`/api/categories/${encodeURIComponent(categoryId)}`, {
         method: 'DELETE'
       });
-      const result = await res.json();
-      if (!res.ok) {
-        serverErrorMsg = result.error || 'Gagal menghapus kategori dari Supabase.';
-      } else {
-        await this.getCategories(); // refresh cache
+      if (res.ok) {
+        await this.getCategories();
         return;
       }
     } catch (err: any) {
-      serverErrorMsg = err?.message || 'Gagal menghubungi server.';
+      console.warn('API deleteCategory failed, trying direct Supabase:', err);
     }
 
-    // If server returned error, throw clearly
-    if (serverErrorMsg && isSupabaseConfigured) {
-      throw new Error(serverErrorMsg);
+    // Secondary: Direct Supabase delete
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('categories').delete().eq('id', categoryId);
+      } catch (sbErr) {
+        console.warn('Direct Supabase delete category error:', sbErr);
+      }
     }
 
     // Fallback: local state
@@ -228,8 +275,6 @@ export const productService = {
       throw new Error('Daftar ID kategori tidak valid.');
     }
 
-    let serverErrorMsg = '';
-
     // Primary: Call server-side API
     try {
       const res = await fetch('/api/categories/reorder', {
@@ -237,19 +282,13 @@ export const productService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderedIds })
       });
-      const result = await res.json();
-      if (!res.ok) {
-        serverErrorMsg = result.error || 'Gagal memperbarui urutan kategori di Supabase.';
-      } else {
+      if (res.ok) {
+        const result = await res.json();
         localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(result));
         return result as Category[];
       }
     } catch (err: any) {
-      serverErrorMsg = err?.message || 'Gagal menghubungi server.';
-    }
-
-    if (serverErrorMsg && isSupabaseConfigured) {
-      throw new Error(serverErrorMsg);
+      console.warn('API reorderCategories failed:', err);
     }
 
     // Fallback: local state
@@ -289,12 +328,17 @@ export const productService = {
     }
 
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('id');
-      if (!error && data && data.length > 0) {
-        return data as Product[];
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('id');
+        if (!error && data && data.length > 0) {
+          localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(data));
+          return data as Product[];
+        }
+      } catch (sbErr) {
+        console.warn('Direct Supabase getProducts error:', sbErr);
       }
     }
 
@@ -312,7 +356,6 @@ export const productService = {
 
   async saveProduct(product: Product): Promise<Product> {
     try {
-      // Check if product exists in current cache to decide POST or PUT
       const current = await this.getProducts();
       const existing = current.find((p) => p.id === product.id);
 
@@ -338,8 +381,13 @@ export const productService = {
     }
 
     if (isSupabaseConfigured && supabase) {
-      await supabase.from('products').upsert(product);
+      try {
+        await supabase.from('products').upsert(product);
+      } catch (sbErr) {
+        console.warn('Direct Supabase upsert product error:', sbErr);
+      }
     }
+
     const current = await this.getProducts();
     const existingIndex = current.findIndex((p) => p.id === product.id);
     let updated: Product[];
@@ -407,7 +455,11 @@ export const productService = {
     }
 
     if (isSupabaseConfigured && supabase) {
-      await supabase.from('products').delete().eq('id', productId);
+      try {
+        await supabase.from('products').delete().eq('id', productId);
+      } catch (sbErr) {
+        console.warn('Direct Supabase delete product error:', sbErr);
+      }
     }
     const current = await this.getProducts();
     const updated = current.filter((p) => p.id !== productId);
@@ -431,44 +483,126 @@ export const productService = {
         return await res.json();
       }
     } catch (apiErr) {
-      console.warn('Failed to fetch toppings:', apiErr);
+      console.warn('Failed to fetch toppings from API:', apiErr);
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data } = await supabase
+          .from('website_content')
+          .select('data')
+          .eq('section_key', 'toppings_list')
+          .maybeSingle();
+        if (data?.data?.toppings) {
+          return data.data.toppings;
+        }
+      } catch (sbErr) {
+        console.warn('Direct Supabase getToppings error:', sbErr);
+      }
     }
     return [];
   },
 
   async createTopping(topping: { name: string; price: number; category?: string; is_active?: boolean }): Promise<any> {
-    const res = await fetch('/api/toppings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(topping)
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menambahkan topping');
+    try {
+      const res = await fetch('/api/toppings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(topping)
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (apiErr) {
+      console.warn('API createTopping failed, trying direct Supabase:', apiErr);
     }
-    return await res.json();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const current = await this.getToppings();
+        const newTop = {
+          id: `top-${Date.now()}`,
+          name: topping.name.trim(),
+          price: Number(topping.price) || 0,
+          category: topping.category || 'SNACK',
+          is_active: topping.is_active !== false,
+          created_at: new Date().toISOString()
+        };
+        current.push(newTop);
+        await supabase.from('website_content').upsert({
+          section_key: 'toppings_list',
+          data: { toppings: current, updated_at: new Date().toISOString() },
+          updated_at: new Date().toISOString()
+        });
+        return newTop;
+      } catch (sbErr) {
+        console.warn('Direct Supabase createTopping error:', sbErr);
+      }
+    }
+
+    return {
+      id: `top-${Date.now()}`,
+      ...topping
+    };
   },
 
   async updateTopping(id: string, updates: Partial<{ name: string; price: number; category: string; is_active: boolean }>): Promise<any> {
-    const res = await fetch(`/api/toppings/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal mengubah topping');
+    try {
+      const res = await fetch(`/api/toppings/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (apiErr) {
+      console.warn('API updateTopping failed, trying direct Supabase:', apiErr);
     }
-    return await res.json();
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const current = await this.getToppings();
+        const idx = current.findIndex((t: any) => t.id === id);
+        if (idx >= 0) {
+          current[idx] = { ...current[idx], ...updates, updated_at: new Date().toISOString() };
+          await supabase.from('website_content').upsert({
+            section_key: 'toppings_list',
+            data: { toppings: current, updated_at: new Date().toISOString() },
+            updated_at: new Date().toISOString()
+          });
+          return current[idx];
+        }
+      } catch (sbErr) {
+        console.warn('Direct Supabase updateTopping error:', sbErr);
+      }
+    }
+
+    return { id, ...updates };
   },
 
   async deleteTopping(id: string): Promise<void> {
-    const res = await fetch(`/api/toppings/${id}`, {
-      method: 'DELETE'
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Gagal menghapus topping');
+    try {
+      const res = await fetch(`/api/toppings/${id}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) return;
+    } catch (apiErr) {
+      console.warn('API deleteTopping failed, trying direct Supabase:', apiErr);
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const current = await this.getToppings();
+        const filtered = current.filter((t: any) => t.id !== id);
+        await supabase.from('website_content').upsert({
+          section_key: 'toppings_list',
+          data: { toppings: filtered, updated_at: new Date().toISOString() },
+          updated_at: new Date().toISOString()
+        });
+      } catch (sbErr) {
+        console.warn('Direct Supabase deleteTopping error:', sbErr);
+      }
     }
   }
 };

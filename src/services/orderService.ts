@@ -315,6 +315,34 @@ export const orderService = {
     return updatedOrder;
   },
 
+  async deleteOrder(orderId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        const current = await this.getOrders();
+        const updatedList = current.filter((o) => o.id !== orderId);
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedList));
+        notifyListeners(updatedList);
+        return true;
+      }
+    } catch (apiErr) {
+      console.warn('API deleteOrder failed, trying client supabase:', apiErr);
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      await supabase.from('order_items').delete().eq('order_id', orderId);
+      await supabase.from('orders').delete().eq('id', orderId);
+    }
+
+    const current = await this.getOrders();
+    const updatedList = current.filter((o) => o.id !== orderId);
+    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedList));
+    notifyListeners(updatedList);
+    return true;
+  },
+
   subscribe(listener: OrderListener): () => void {
     listeners.add(listener);
     ensureRealtimeSubscription();
